@@ -37,8 +37,8 @@ dlo:
           res: 0.5
 
     keyframe:
-      threshD: 5
-      threshR: 30
+      threshD: 2
+      threshR: 1
 
     submap:
       keyframe:

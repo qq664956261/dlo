@@ -26,7 +26,8 @@ public:
 private:
 
   void abortTimerCB(const ros::TimerEvent& e);
-  void icpCB(const livox_ros_driver2::CustomMsgConstPtr& pc);
+  //void icpCB(const livox_ros_driver2::CustomMsgConstPtr& pc);
+  void icpCB(const sensor_msgs::MultiEchoLaserScan::ConstPtr& multi_echo_msg);
   void imuCB(const sensor_msgs::Imu::ConstPtr& imu);
   bool saveTrajectory(direct_lidar_odometry::save_traj::Request& req,
                       direct_lidar_odometry::save_traj::Response& res);
@@ -251,6 +252,7 @@ private:
   bool use_first_frame_{false};
   std::vector<pcl::PointCloud<PointType>::Ptr> first_frame_clouds_;
   bool use_icp_{true};
+  bool use_ndt_{false};
   pcl::IterativeClosestPoint<PointType, PointType> icp_s2s_;
   pcl::IterativeClosestPoint<PointType, PointType> icp_s2m_;
 

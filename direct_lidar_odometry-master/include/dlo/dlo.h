@@ -52,6 +52,7 @@
 #include <direct_lidar_odometry/save_traj.h>
 #include <nano_gicp/nano_gicp.hpp>
 #include <livox_ros_driver2/CustomMsg.h>
+#include <sensor_msgs/MultiEchoLaserScan.h>
 #include <pcl/io/ply_io.h>
 #include <pcl/registration/icp.h>
 typedef pcl::PointXYZI PointType;
