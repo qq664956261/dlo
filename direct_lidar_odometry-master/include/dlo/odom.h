@@ -251,9 +251,11 @@ private:
   bool first_frame_{false};
   bool use_first_frame_{false};
   std::vector<pcl::PointCloud<PointType>::Ptr> first_frame_clouds_;
-  bool use_icp_{true};
-  bool use_ndt_{false};
+  bool use_icp_{false};
+  bool use_ndt_{true};
   pcl::IterativeClosestPoint<PointType, PointType> icp_s2s_;
   pcl::IterativeClosestPoint<PointType, PointType> icp_s2m_;
+  pcl::NormalDistributionsTransform<PointType, PointType> ndt_s2s_;
+  pcl::NormalDistributionsTransform<PointType, PointType> ndt_s2m_;
 
 };

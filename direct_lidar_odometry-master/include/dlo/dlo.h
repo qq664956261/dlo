@@ -55,6 +55,7 @@
 #include <sensor_msgs/MultiEchoLaserScan.h>
 #include <pcl/io/ply_io.h>
 #include <pcl/registration/icp.h>
+#include <pcl/registration/ndt.h>
 typedef pcl::PointXYZI PointType;
 
 namespace dlo {

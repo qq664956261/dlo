@@ -30,15 +30,15 @@ dlo:
         size: 1.0
       voxelFilter:
         scan:
-          use: true
+          use: false
           res: 0.25
         submap:
-          use: true
+          use: false
           res: 0.5
 
     keyframe:
-      threshD: 2
-      threshR: 1
+      threshD: 4
+      threshR: 45
 
     submap:
       keyframe:
