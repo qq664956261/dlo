@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+
+<package format="2">
+
+  <name>hj_slam</name>
+  <version>1.4.3</version>
+  <description>hj_slam</description>
+
+  <maintainer email="664956261@qq.com">zhang cheng</maintainer>
+  <maintainer email="123456@qq.com">6666</maintainer>
+
+  <author>zhang cheng</author>
+
+
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>message_generation</build_depend>
+  <exec_depend>message_runtime</exec_depend>
+
+  <depend>roscpp</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>pcl_ros</depend>
+
+  <export>
+  </export>
+
+</package>
