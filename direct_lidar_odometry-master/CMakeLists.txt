@@ -41,6 +41,7 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   pcl_ros
   message_generation
+  laser_geometry
 )
 
 add_service_files(

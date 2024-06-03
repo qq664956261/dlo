@@ -53,9 +53,11 @@
 #include <nano_gicp/nano_gicp.hpp>
 #include <livox_ros_driver2/CustomMsg.h>
 #include <sensor_msgs/MultiEchoLaserScan.h>
+#include <sensor_msgs/LaserScan.h>
 #include <pcl/io/ply_io.h>
 #include <pcl/registration/icp.h>
 #include <pcl/registration/ndt.h>
+#include <laser_geometry/laser_geometry.h>
 typedef pcl::PointXYZI PointType;
 
 namespace dlo {
