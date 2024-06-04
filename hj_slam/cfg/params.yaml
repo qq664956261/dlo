@@ -33,7 +33,7 @@ dlo:
 
     keyframe:
       threshD: 2
-      threshR: 45
+      threshR: 15
 
     submap:
       keyframe:
@@ -50,18 +50,18 @@ dlo:
       s2s:
         kCorrespondences: 10
         maxCorrespondenceDistance: 1.0
-        maxIterations: 32
-        transformationEpsilon: 0.01
-        euclideanFitnessEpsilon: 0.01
+        maxIterations: 320
+        transformationEpsilon: 0.000001
+        euclideanFitnessEpsilon: 0.000001
         ransac:
           iterations: 5
           outlierRejectionThresh: 1.0
       s2m:
         kCorrespondences: 20
         maxCorrespondenceDistance: 0.5
-        maxIterations: 32
-        transformationEpsilon: 0.01
-        euclideanFitnessEpsilon: 0.01
+        maxIterations: 320
+        transformationEpsilon: 0.000001
+        euclideanFitnessEpsilon: 0.000001
         ransac:
           iterations: 5
           outlierRejectionThresh: 1.0
