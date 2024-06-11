@@ -58,6 +58,10 @@
 #include <pcl/registration/icp.h>
 #include <pcl/registration/ndt.h>
 #include <laser_geometry/laser_geometry.h>
+#include "hj_interface/Pose.h"
+#include "function_factory.h"
+#include "node_factory.h"
+#include "hj/ExtrinsicErrorTerm.hh"
 typedef pcl::PointXYZI PointType;
 
 namespace hj {

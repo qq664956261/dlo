@@ -33,6 +33,8 @@ endif(OPENMP_FOUND)
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads REQUIRED)
+find_package(Ceres REQUIRED)
+find_package(OpenCV 4 REQUIRED)
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
@@ -70,7 +72,14 @@ catkin_package(
 
 include_directories(include 
 ${catkin_INCLUDE_DIRS}
+${CERES_INCLUDE_DIRS}
+${OpenCV_INCLUDE_DIRS}
 livox_ros_driver2)
+
+include_directories("${CMAKE_SOURCE_DIR}/hj_interface/include")
+include_directories("${CMAKE_SOURCE_DIR}/thirdparty/include")
+link_directories("${CMAKE_SOURCE_DIR}/hj_interface/platforms/${PLATFORM}")
+link_directories("${CMAKE_SOURCE_DIR}/thirdparty/platforms/${PLATFORM}")
 
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
 file(WRITE ${CMAKE_BINARY_DIR}/test_cpuid.cpp "#include <cpuid.h>")
@@ -96,14 +105,18 @@ target_link_libraries(nano_gicp ${PCL_LIBRARIES} ${OpenMP_LIBS} nanoflann)
 target_include_directories(nano_gicp PUBLIC include ${PCL_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR})
 
 # Odometry Node
-add_executable(dlo_odom_node src/hj/odom_node.cc src/hj/odom.cc)
+add_executable(dlo_odom_node src/hj/odom_node.cc src/hj/odom.cc src/hj/PointReader.cpp src/hj/ExtrinsicErrorTerm.cpp)
 add_dependencies(dlo_odom_node ${catkin_EXPORTED_TARGETS})
 target_compile_options(dlo_odom_node PRIVATE ${OpenMP_FLAGS})
-target_link_libraries(dlo_odom_node ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenMP_LIBS} Threads::Threads nano_gicp)
+target_link_libraries(dlo_odom_node ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenMP_LIBS} Threads::Threads nano_gicp ${CERES_LIBRARIES} ${OpenCV_LIBS})
 
 # Mapping Node
 add_executable (dlo_map_node src/hj/map_node.cc src/hj/map.cc)
 add_dependencies(dlo_map_node ${catkin_EXPORTED_TARGETS})
 target_compile_options(dlo_map_node PRIVATE ${OpenMP_FLAGS})
 target_link_libraries(dlo_map_node ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenMP_LIBS} Threads::Threads)
+target_link_libraries(dlo_map_node base_framework dl)
+set_target_properties(dlo_map_node PROPERTIES
+LIBRARY_OUTPUT_DIRECTORY ${CATKIN_DEVEL_PREFIX}/lib/${INSTALL_DEVEL_PATH})
+
 

@@ -9,14 +9,15 @@
 
 #include "hj/dlo.h"
 
-class hj::OdomNode {
+class hj::OdomNode
+{
 
 public:
-
   OdomNode(ros::NodeHandle node_handle);
   ~OdomNode();
 
-  static void abort() {
+  static void abort()
+  {
     abort_ = true;
   }
 
@@ -24,15 +25,14 @@ public:
   void stop();
 
 private:
+  void abortTimerCB(const ros::TimerEvent &e);
+  // void icpCB(const livox_ros_driver2::CustomMsgConstPtr& pc);
+  // void icpCB(const sensor_msgs::MultiEchoLaserScan::ConstPtr& multi_echo_msg);
+  void icpCB(const sensor_msgs::LaserScan::ConstPtr &pc);
 
-  void abortTimerCB(const ros::TimerEvent& e);
-  //void icpCB(const livox_ros_driver2::CustomMsgConstPtr& pc);
-  //void icpCB(const sensor_msgs::MultiEchoLaserScan::ConstPtr& multi_echo_msg);
-  void icpCB(const sensor_msgs::LaserScan::ConstPtr& pc);
-
-  void imuCB(const sensor_msgs::Imu::ConstPtr& imu);
-  bool saveTrajectory(direct_lidar_odometry::save_traj::Request& req,
-                      direct_lidar_odometry::save_traj::Response& res);
+  void imuCB(const sensor_msgs::Imu::ConstPtr &imu);
+  bool saveTrajectory(direct_lidar_odometry::save_traj::Request &req,
+                      direct_lidar_odometry::save_traj::Response &res);
 
   void getParams();
 
@@ -65,6 +65,13 @@ private:
   void computeConcaveHull();
   void pushSubmapIndices(std::vector<float> dists, int k, std::vector<int> frames);
   void getSubmapKeyframes();
+  void CallbackOdom(const hj_interface::PoseConstPtr &msg);
+  void checkForTimeout(const ros::TimerEvent &);
+  void runCalib();
+  void buildCalibData();
+  int timeStampSynchronization(double lidar_time);
+  void saveResult(Eigen::Matrix4d T_odom_lidar);
+  void align();
 
   void debug();
 
@@ -72,11 +79,12 @@ private:
 
   ros::NodeHandle nh;
   ros::Timer abort_timer;
-  
+
   ros::ServiceServer save_traj_srv;
 
   ros::Subscriber icp_sub;
   ros::Subscriber imu_sub;
+  ros::Subscriber odom_sub;
 
   ros::Publisher odom_pub;
   ros::Publisher pose_pub;
@@ -150,20 +158,23 @@ private:
 
   Eigen::Matrix4f imu_SE3;
 
-  struct XYZd {
+  struct XYZd
+  {
     double x;
     double y;
     double z;
   };
 
-  struct ImuBias {
+  struct ImuBias
+  {
     XYZd gyro;
     XYZd accel;
   };
 
   ImuBias imu_bias;
 
-  struct ImuMeas {
+  struct ImuMeas
+  {
     double stamp;
     XYZd ang_vel;
     XYZd lin_accel;
@@ -173,11 +184,13 @@ private:
 
   boost::circular_buffer<ImuMeas> imu_buffer;
 
-  static bool comparatorImu(ImuMeas m1, ImuMeas m2) {
+  static bool comparatorImu(ImuMeas m1, ImuMeas m2)
+  {
     return (m1.stamp < m2.stamp);
   };
 
-  struct Metrics {
+  struct Metrics
+  {
     std::vector<float> spaciousness;
   };
 
@@ -195,6 +208,7 @@ private:
   std::thread debug_thread;
 
   std::mutex mtx_imu;
+  std::mutex mtx_odom;
 
   std::string cpu_type;
   std::vector<double> cpu_percents;
@@ -254,11 +268,24 @@ private:
   bool first_frame_{false};
   bool use_first_frame_{false};
   std::vector<pcl::PointCloud<PointType>::Ptr> first_frame_clouds_;
-  bool use_icp_{true};
-  bool use_ndt_{false};
+  bool use_icp_{false};
+  bool use_ndt_{true};
   pcl::IterativeClosestPoint<PointType, PointType> icp_s2s_;
   pcl::IterativeClosestPoint<PointType, PointType> icp_s2m_;
   pcl::NormalDistributionsTransform<PointType, PointType> ndt_s2s_;
   pcl::NormalDistributionsTransform<PointType, PointType> ndt_s2m_;
-
+  hj_bf::HJSubscriber odom_sub_;
+  ros::Timer timer_;
+  ros::Time last_msg_time_;
+  std::atomic<bool> start_calib_{false};
+  std::deque<std::vector<double>> odom_data_;
+  std::deque<std::vector<double>> lidar_data_;
+  double lidar_time_;
+  std::thread calib_thread_;
+  std::atomic<bool> timeout_detected_ {false};
+  ExtrinsicErrorTerm::Ptr error_term_;
+  VecOfPoses odom_poses_;
+  VecOfPoses lidar_poses_;
+  std::deque<double> odom_times_;
+  std::deque<double> lidar_times_;
 };
