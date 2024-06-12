@@ -127,7 +127,7 @@ hj::OdomNode::OdomNode(ros::NodeHandle node_handle) : nh(node_handle)
 
   this->ndt_s2s_.setTransformationEpsilon(1e-8);
   this->ndt_s2s_.setStepSize(0.01);
-  this->ndt_s2s_.setResolution(1);
+  this->ndt_s2s_.setResolution(0.2);
   this->ndt_s2s_.setMaximumIterations(100);
 
   this->gicp.setCorrespondenceRandomness(this->gicps2m_k_correspondences_);
@@ -147,7 +147,7 @@ hj::OdomNode::OdomNode(ros::NodeHandle node_handle) : nh(node_handle)
 
   this->ndt_s2m_.setTransformationEpsilon(1e-8);
   this->ndt_s2m_.setStepSize(0.01);
-  this->ndt_s2m_.setResolution(1);
+  this->ndt_s2m_.setResolution(0.2);
   this->ndt_s2m_.setMaximumIterations(100);
 
   pcl::Registration<PointType, PointType>::KdTreeReciprocalPtr temp;
@@ -2032,14 +2032,14 @@ void hj::OdomNode::saveResult(Eigen::Matrix4d T_odom_lidar)
 void hj::OdomNode::align()
 {
   Eigen::Vector3d p1, p2;
-  int N = 500;
+  int N = 200;
   if (odom_poses_.size() != lidar_poses_.size() || odom_poses_.size() < N)
     return;
 
   for (int i = 0; i < N; i++)
   {
-    p1 += lidar_poses_[i].p;
-    p2 += odom_poses_[i].p;
+    p1 += odom_poses_[i].p;
+    p2 += lidar_poses_[i].p;
   }
   p1 /= N;
   p2 /= N;
@@ -2048,8 +2048,8 @@ void hj::OdomNode::align()
   q2.resize(N);
   for (int i = 0; i < N; i++)
   {
-    q1[i] = lidar_poses_[i].p - p1;
-    q2[i] = odom_poses_[i].p - p2;
+    q1[i] = odom_poses_[i].p - p1;
+    q2[i] = lidar_poses_[i].p - p2;
   }
 
   //???? q1*q2^T
@@ -2073,7 +2073,7 @@ void hj::OdomNode::align()
   std::cout << "t_= " << t_ << std::endl;
   for (int i = 0; i < lidar_poses_.size(); i++)
   {
-    lidar_poses_[i].p = R_.inverse() * lidar_poses_[i].p - R_.inverse() * t_;
-    lidar_poses_[i].q = R_.inverse() * lidar_poses_[i].q.toRotationMatrix();
+    odom_poses_[i].p = R_.inverse() * odom_poses_[i].p - R_.inverse() * t_;
+    odom_poses_[i].q = R_.inverse() * odom_poses_[i].q.toRotationMatrix();
   }
 }

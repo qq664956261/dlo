@@ -22,7 +22,7 @@ dlo:
     preprocessing:
       cropBoxFilter:
         use: true
-        size: 1.0
+        size: 1
       voxelFilter:
         scan:
           use: false
@@ -32,7 +32,7 @@ dlo:
           res: 0.1
 
     keyframe:
-      threshD: 0.5
+      threshD: 0.1
       threshR: 15
 
     submap:

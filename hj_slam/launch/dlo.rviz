@@ -6,6 +6,7 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
+        - /Odometry1
         - /Odometry1/Shape1
         - /Keyframes1/Shape1
         - /Map1/Autocompute Value Bounds1
@@ -110,11 +111,11 @@ Visualization Manager:
         Axes Length: 1
         Axes Radius: 0.25
         Color: 255; 25; 0
-        Head Length: 0.30000001192092896
-        Head Radius: 0.10000000149011612
+        Head Length: 0.029999999329447746
+        Head Radius: 0.05000000074505806
         Shaft Length: 1
-        Shaft Radius: 0.05000000074505806
-        Value: Axes
+        Shaft Radius: 0.009999999776482582
+        Value: Arrow
       Topic: /robot/dlo/odom_node/odom
       Unreliable: false
       Value: true
@@ -237,7 +238,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 19.509315490722656
+      Distance: 9.035560607910156
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -253,9 +254,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.1997969150543213
+      Pitch: 1.5697963237762451
       Target Frame: robot/base_link
-      Yaw: 4.883605003356934
+      Yaw: 0.2204197347164154
     Saved: ~
 Window Geometry:
   Displays:
