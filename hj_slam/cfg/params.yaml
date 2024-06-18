@@ -37,7 +37,7 @@ dlo:
 
     submap:
       keyframe:
-        knn: 10
+        knn: 30
         kcv: 10
         kcc: 10
 

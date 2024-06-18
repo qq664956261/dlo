@@ -48,8 +48,8 @@
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/PointCloud2.h>
 
-#include <direct_lidar_odometry/save_pcd.h>
-#include <direct_lidar_odometry/save_traj.h>
+#include <hj_slam/save_pcd.h>
+#include <hj_slam/save_traj.h>
 #include <nano_gicp/nano_gicp.hpp>
 #include <livox_ros_driver2/CustomMsg.h>
 #include <sensor_msgs/MultiEchoLaserScan.h>
@@ -62,6 +62,8 @@
 #include "function_factory.h"
 #include "node_factory.h"
 #include "hj/ExtrinsicErrorTerm.hh"
+#include "hj/lidarFactor.h"
+#include "hj/scancontext.h"
 typedef pcl::PointXYZI PointType;
 
 namespace hj {

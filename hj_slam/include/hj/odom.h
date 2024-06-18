@@ -27,12 +27,12 @@ public:
 private:
   void abortTimerCB(const ros::TimerEvent &e);
   // void icpCB(const livox_ros_driver2::CustomMsgConstPtr& pc);
-  // void icpCB(const sensor_msgs::MultiEchoLaserScan::ConstPtr& multi_echo_msg);
-  void icpCB(const sensor_msgs::LaserScan::ConstPtr &pc);
+  void icpCB(const sensor_msgs::MultiEchoLaserScan::ConstPtr& multi_echo_msg);
+  //void icpCB(const sensor_msgs::LaserScan::ConstPtr &pc);
 
   void imuCB(const sensor_msgs::Imu::ConstPtr &imu);
-  bool saveTrajectory(direct_lidar_odometry::save_traj::Request &req,
-                      direct_lidar_odometry::save_traj::Response &res);
+  bool saveTrajectory(hj_slam::save_traj::Request &req,
+                      hj_slam::save_traj::Response &res);
 
   void getParams();
 
@@ -72,7 +72,8 @@ private:
   int timeStampSynchronization(double lidar_time);
   void saveResult(Eigen::Matrix4d T_odom_lidar);
   void align();
-
+  void runLoopClosure();
+  void LoopClosure(const int index1, const int index2, const Eigen::Matrix4d &pose1, const Eigen::Matrix4d &pose2);
   void debug();
 
   double first_imu_time;
@@ -288,4 +289,21 @@ private:
   VecOfPoses lidar_poses_;
   std::deque<double> odom_times_;
   std::deque<double> lidar_times_;
+  bool use_calib_{false};
+  std::vector<double> keyframes_timestamps_;
+  double loop_distance_{5};
+  std::atomic<bool> loop_detected_{false};
+  double loop_time_thre_{30.0};
+  double last_loop_time_{0.0};
+  int loop_id_{0};
+  std::vector<std::pair<std::pair<Eigen::Vector3f, Eigen::Quaternionf>, pcl::PointCloud<PointType>::Ptr>> keyframes_loop_;
+  std::vector<double> keyframes_timestamps_loop_;
+  pcl::PointCloud<PointType>::Ptr loop_source_cloud_;
+  bool use_loop_{true};
+  std::thread loop_thread_;
+  std::mutex mtx_loop_;
+  std::atomic<bool> is_optimized_{false};
+  Eigen::Matrix4f T_before_;
+  Eigen::Matrix4f T_after_;
+  std::shared_ptr<SCManager> sc_manager_ptr_;
 };

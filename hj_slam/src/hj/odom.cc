@@ -16,6 +16,7 @@ std::atomic<bool> hj::OdomNode::abort_(false);
 
 hj::OdomNode::OdomNode(ros::NodeHandle node_handle) : nh(node_handle)
 {
+  sc_manager_ptr_ = std::make_shared<SCManager>();
   error_term_ = std::make_shared<ExtrinsicErrorTerm>();
   this->getParams();
 
@@ -29,11 +30,11 @@ hj::OdomNode::OdomNode(ros::NodeHandle node_handle) : nh(node_handle)
 
   // this->icp_sub = this->nh.subscribe("/livox/lidar", 1, &hj::OdomNode::icpCB, this);
   // // this->imu_sub = this->nh.subscribe("/livox/imu", 1, &hj::OdomNode::imuCB, this);
-  // this->icp_sub = this->nh.subscribe("/horizontal_laser_2d", 1, &hj::OdomNode::icpCB, this);
-  // this->imu_sub = this->nh.subscribe("/imu", 1, &hj::OdomNode::imuCB, this);
-  this->icp_sub = this->nh.subscribe("/scan", 1, &hj::OdomNode::icpCB, this);
-  this->imu_sub = this->nh.subscribe("/imu_data", 1, &hj::OdomNode::imuCB, this);
-  // odom_sub_ = hj_bf::HJSubscribe("/fusion_result", 1000, &hj::OdomNode::CallbackOdom, this);
+  this->icp_sub = this->nh.subscribe("/horizontal_laser_2d", 1, &hj::OdomNode::icpCB, this);
+  this->imu_sub = this->nh.subscribe("/imu", 1, &hj::OdomNode::imuCB, this);
+  // this->icp_sub = this->nh.subscribe("/scan", 1, &hj::OdomNode::icpCB, this);
+  // this->imu_sub = this->nh.subscribe("/imu_data", 1, &hj::OdomNode::imuCB, this);
+  //  odom_sub_ = hj_bf::HJSubscribe("/fusion_result", 1000, &hj::OdomNode::CallbackOdom, this);
   this->odom_sub = this->nh.subscribe("/fusion_result", 1000, &hj::OdomNode::CallbackOdom, this);
 
   this->odom_pub = this->nh.advertise<nav_msgs::Odometry>("odom", 1);
@@ -44,10 +45,19 @@ hj::OdomNode::OdomNode(ros::NodeHandle node_handle) : nh(node_handle)
   this->curr_scan_pub = this->nh.advertise<sensor_msgs::PointCloud2>("curr_scan", 1, true);
 
   // 定时器，用于定期检查消息时间戳
-  this->timer_ = this->nh.createTimer(ros::Duration(0.1), &hj::OdomNode::checkForTimeout, this);
-  last_msg_time_ = ros::Time::now();
-  this->calib_thread_ = std::thread(&hj::OdomNode::runCalib, this);
-  this->calib_thread_.detach();
+  if (use_calib_)
+  {
+    this->timer_ = this->nh.createTimer(ros::Duration(0.1), &hj::OdomNode::checkForTimeout, this);
+    last_msg_time_ = ros::Time::now();
+    this->calib_thread_ = std::thread(&hj::OdomNode::runCalib, this);
+    this->calib_thread_.detach();
+  }
+
+  if (use_loop_)
+  {
+    loop_thread_ = std::thread(&hj::OdomNode::runLoopClosure, this);
+    loop_thread_.detach();
+  }
 
   this->odom.pose.pose.position.x = 0.;
   this->odom.pose.pose.position.y = 0.;
@@ -349,6 +359,10 @@ void hj::OdomNode::stop()
   {
     this->calib_thread_.join();
   }
+  if (this->loop_thread_.joinable())
+  {
+    this->loop_thread_.join();
+  }
 
   ros::shutdown();
 }
@@ -555,8 +569,13 @@ void hj::OdomNode::initializeInputTarget()
 
   // keep history of keyframes
   this->keyframes.push_back(std::make_pair(std::make_pair(this->pose, this->rotq), first_keyframe));
+  this->keyframes_timestamps_.push_back(scan_stamp.toSec());
   *this->keyframes_cloud += *first_keyframe;
   *this->keyframe_cloud = *first_keyframe;
+
+  pcl::PointCloud<PointType>::Ptr first_keyframe_sc(new pcl::PointCloud<PointType>);
+  pcl::copyPointCloud(*first_keyframe, *first_keyframe_sc);
+  sc_manager_ptr_->makeAndSaveScancontextAndKeys(*first_keyframe_sc);
 
   // compute kdtree and keyframe normals (use gicp_s2s input source as temporary storage because it will be overwritten by setInputSources())
   if (use_icp_)
@@ -725,8 +744,8 @@ void hj::OdomNode::initializeDLO()
  **/
 
 // void hj::OdomNode::icpCB(const livox_ros_driver2::CustomMsgConstPtr &pc)
-// void hj::OdomNode::icpCB(const sensor_msgs::MultiEchoLaserScan::ConstPtr &pc)
-void hj::OdomNode::icpCB(const sensor_msgs::LaserScan::ConstPtr &pc)
+void hj::OdomNode::icpCB(const sensor_msgs::MultiEchoLaserScan::ConstPtr &pc)
+// void hj::OdomNode::icpCB(const sensor_msgs::LaserScan::ConstPtr &pc)
 {
   double then = ros::Time::now().toSec();
   this->scan_stamp = pc->header.stamp;
@@ -736,57 +755,57 @@ void hj::OdomNode::icpCB(const sensor_msgs::LaserScan::ConstPtr &pc)
   // If there are too few points in the pointcloud, try again
   this->current_scan = pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
   // LaserScan
-  laser_geometry::LaserProjection projector;
-  sensor_msgs::PointCloud2 cloud2;
+  // laser_geometry::LaserProjection projector;
+  // sensor_msgs::PointCloud2 cloud2;
 
-  // 将LaserScan转换为PointCloud2
-  projector.projectLaser(*pc, cloud2);
+  // // 将LaserScan转换为PointCloud2
+  // projector.projectLaser(*pc, cloud2);
 
-  // 然后将PointCloud2转换为PCL的点云格式
-  pcl::PointCloud<PointType>::Ptr cloud(new pcl::PointCloud<PointType>);
-  pcl::fromROSMsg(cloud2, *cloud);
-  for (auto point : cloud->points)
-  {
-    PointType p;
-    p.x = point.x;
-    p.y = point.y;
-    p.z = point.z;
-    p.intensity = point.intensity;
-    this->current_scan->push_back(p);
-  }
+  // // 然后将PointCloud2转换为PCL的点云格式
+  // pcl::PointCloud<PointType>::Ptr cloud(new pcl::PointCloud<PointType>);
+  // pcl::fromROSMsg(cloud2, *cloud);
+  // for (auto point : cloud->points)
+  // {
+  //   PointType p;
+  //   p.x = point.x;
+  //   p.y = point.y;
+  //   p.z = point.z;
+  //   p.intensity = point.intensity;
+  //   this->current_scan->push_back(p);
+  // }
 
   // MultiEchoLaserScan
-  //  for (size_t i = 0; i < pc->ranges.size(); ++i)
-  //  {
-  //    // 对每个角度采用最强的回声
-  //    if (!pc->ranges[i].echoes.empty())
-  //    {
-  //      const float range = pc->ranges[i].echoes[0]; // 假设第一个回声是最强回声
+  for (size_t i = 0; i < pc->ranges.size(); ++i)
+  {
+    // 对每个角度采用最强的回声
+    if (!pc->ranges[i].echoes.empty())
+    {
+      const float range = pc->ranges[i].echoes[0]; // 假设第一个回声是最强回声
 
-  //     if (range < pc->range_min || range > pc->range_max)
-  //     {
-  //       // 跳过超出范围的回声
-  //       continue;
-  //     }
+      if (range < pc->range_min || range > pc->range_max)
+      {
+        // 跳过超出范围的回声
+        continue;
+      }
 
-  //     // 计算角度（在MultiEchoLaserScan中是增量表示的）
-  //     float angle = pc->angle_min + i * pc->angle_increment;
+      // 计算角度（在MultiEchoLaserScan中是增量表示的）
+      float angle = pc->angle_min + i * pc->angle_increment;
 
-  //     // 转换为笛卡尔坐标
-  //     float x = range * cos(angle);
-  //     float y = range * sin(angle);
+      // 转换为笛卡尔坐标
+      float x = range * cos(angle);
+      float y = range * sin(angle);
 
-  //     // 添加到点云
-  //     PointType point;
-  //     point.x = x;
-  //     point.y = y;
-  //     point.z = 0;
-  //     point.intensity = 0;
-  //     if (x * x + y * y > 400)
-  //       continue;
-  //     current_scan->push_back(point);
-  //   }
-  // }
+      // 添加到点云
+      PointType point;
+      point.x = x;
+      point.y = y;
+      point.z = 0;
+      point.intensity = 0;
+      if (x * x + y * y > 1600)
+        continue;
+      current_scan->push_back(point);
+    }
+  }
   // pcl::io::savePLYFileBinary("/home/zc/current_scan.ply", *this->current_scan);
   // CustomMsgConstPtr
 
@@ -1113,6 +1132,13 @@ void hj::OdomNode::getNextPose()
     // Get final transformation in global frame
     this->T = this->gicp.getFinalTransformation();
   }
+  if (is_optimized_)
+  {
+    Eigen::Matrix4f T_12 = T_before_.inverse() * this->T;
+    this->T = T_after_ * T_12;
+
+    is_optimized_ = false;
+  }
   std::vector<double> data;
   data.push_back(lidar_time_);
   data.push_back(this->T(0, 3));
@@ -1431,6 +1457,50 @@ void hj::OdomNode::updateKeyframes()
     keyframes_idx++;
   }
 
+  // loop
+  // if (!loop_detected_)
+  // {
+  //   if (closest_d < loop_distance_)
+  //   {
+  //     if (scan_stamp.toSec() - keyframes_timestamps_[closest_idx] > loop_time_thre_)
+  //     {
+  //       if (scan_stamp.toSec() - last_loop_time_ > loop_time_thre_)
+  //       {
+  //         std::cout << "loop detected" << std::endl;
+  //         this->keyframes.push_back(std::make_pair(std::make_pair(this->pose, this->rotq), this->current_scan_t));
+  //         this->keyframes_timestamps_.push_back(scan_stamp.toSec());
+  //         this->loop_source_cloud_ = pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
+  //         last_loop_time_ = scan_stamp.toSec();
+  //         loop_id_ = closest_idx;
+  //         pcl::copyPointCloud(*this->current_scan, *this->loop_source_cloud_);
+  //         loop_detected_ = true;
+  //       }
+  //     }
+  //   }
+  // }
+    if (!loop_detected_)
+  {
+    if (closest_d < loop_distance_)
+    {
+      if (scan_stamp.toSec() - keyframes_timestamps_[closest_idx] > loop_time_thre_)
+      {
+        if (scan_stamp.toSec() - last_loop_time_ > loop_time_thre_)
+        {
+          this->submap_kf_idx_curr.clear();
+          
+          std::cout << "loop detected" << std::endl;
+          this->keyframes.push_back(std::make_pair(std::make_pair(this->pose, this->rotq), this->current_scan_t));
+          this->keyframes_timestamps_.push_back(scan_stamp.toSec());
+          this->loop_source_cloud_ = pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
+          last_loop_time_ = scan_stamp.toSec();
+          loop_id_ = closest_idx;
+          pcl::copyPointCloud(*this->current_scan, *this->loop_source_cloud_);
+          loop_detected_ = true;
+        }
+      }
+    }
+  }
+
   // get closest pose and corresponding rotation
   Eigen::Vector3f closest_pose = this->keyframes[closest_idx].first.first;
   Eigen::Quaternionf closest_pose_r = this->keyframes[closest_idx].first.second;
@@ -1474,6 +1544,11 @@ void hj::OdomNode::updateKeyframes()
 
     // update keyframe vector
     this->keyframes.push_back(std::make_pair(std::make_pair(this->pose, this->rotq), this->current_scan_t));
+    this->keyframes_timestamps_.push_back(scan_stamp.toSec());
+
+    pcl::PointCloud<PointType>::Ptr keyframe_sc(new pcl::PointCloud<PointType>);
+    pcl::copyPointCloud(*current_scan, *keyframe_sc);
+    sc_manager_ptr_->makeAndSaveScancontextAndKeys(*keyframe_sc);
 
     // compute kdtree and keyframe normals (use gicp_s2s input source as temporary storage because it will be overwritten by setInputSources())
     *this->keyframes_cloud += *this->current_scan_t;
@@ -1600,34 +1675,34 @@ void hj::OdomNode::getSubmapKeyframes()
   //
 
   // get convex hull indices
-  this->computeConvexHull();
+  // this->computeConvexHull();
 
-  // get distances for each keyframe on convex hull
-  std::vector<float> convex_ds;
-  for (const auto &c : this->keyframe_convex)
-  {
-    convex_ds.push_back(ds[c]);
-  }
+  // // get distances for each keyframe on convex hull
+  // std::vector<float> convex_ds;
+  // for (const auto &c : this->keyframe_convex)
+  // {
+  //   convex_ds.push_back(ds[c]);
+  // }
 
-  // get indicies for top kNN for convex hull
-  this->pushSubmapIndices(convex_ds, this->submap_kcv_, this->keyframe_convex);
+  // // get indicies for top kNN for convex hull
+  // this->pushSubmapIndices(convex_ds, this->submap_kcv_, this->keyframe_convex);
 
-  //
-  // TOP K NEAREST NEIGHBORS FROM CONCAVE HULL
-  //
+  // //
+  // // TOP K NEAREST NEIGHBORS FROM CONCAVE HULL
+  // //
 
-  // get concave hull indices
-  this->computeConcaveHull();
+  // // get concave hull indices
+  // this->computeConcaveHull();
 
-  // get distances for each keyframe on concave hull
-  std::vector<float> concave_ds;
-  for (const auto &c : this->keyframe_concave)
-  {
-    concave_ds.push_back(ds[c]);
-  }
+  // // get distances for each keyframe on concave hull
+  // std::vector<float> concave_ds;
+  // for (const auto &c : this->keyframe_concave)
+  // {
+  //   concave_ds.push_back(ds[c]);
+  // }
 
-  // get indicies for top kNN for convex hull
-  this->pushSubmapIndices(concave_ds, this->submap_kcc_, this->keyframe_concave);
+  // // get indicies for top kNN for convex hull
+  // this->pushSubmapIndices(concave_ds, this->submap_kcc_, this->keyframe_concave);
 
   //
   // BUILD SUBMAP
@@ -1679,8 +1754,8 @@ void hj::OdomNode::getSubmapKeyframes()
   }
 }
 
-bool hj::OdomNode::saveTrajectory(direct_lidar_odometry::save_traj::Request &req,
-                                  direct_lidar_odometry::save_traj::Response &res)
+bool hj::OdomNode::saveTrajectory(hj_slam::save_traj::Request &req,
+                                  hj_slam::save_traj::Response &res)
 {
   std::string kittipath = req.save_path + "/kitti_traj.txt";
   std::ofstream out_kitti(kittipath);
@@ -2076,4 +2151,200 @@ void hj::OdomNode::align()
     odom_poses_[i].p = R_.inverse() * odom_poses_[i].p - R_.inverse() * t_;
     odom_poses_[i].q = R_.inverse() * odom_poses_[i].q.toRotationMatrix();
   }
+}
+
+void hj::OdomNode::runLoopClosure()
+{
+  while (ros::ok())
+  {
+    if (loop_detected_)
+    {
+      this->mtx_loop_.lock();
+      keyframes_loop_ = keyframes;
+      keyframes_timestamps_loop_ = keyframes_timestamps_;
+      this->mtx_loop_.unlock();
+      pcl::PointCloud<PointType>::Ptr source_cloud(new pcl::PointCloud<PointType>);
+      pcl::PointCloud<PointType>::Ptr target_cloud(new pcl::PointCloud<PointType>);
+      pcl::copyPointCloud(*keyframes.back().second, *source_cloud);
+      pcl::copyPointCloud(*keyframes[loop_id_].second, *target_cloud);
+      pcl::PointCloud<PointType>::Ptr aligned_cloud(new pcl::PointCloud<PointType>);
+      Eigen::Matrix4f T = Eigen::Matrix4f::Identity();
+      Eigen::Matrix4f T_source = Eigen::Matrix4f::Identity();
+      T_source.block<3, 3>(0, 0) = keyframes.back().first.second.toRotationMatrix().cast<float>();
+      T_source.block<3, 1>(0, 3) = keyframes.back().first.first;
+      Eigen::Matrix4f T_target1 = Eigen::Matrix4f::Identity();
+      T_target1.block<3, 3>(0, 0) = keyframes[loop_id_].first.second.toRotationMatrix().cast<float>();
+      T_target1.block<3, 1>(0, 3) = keyframes[loop_id_].first.first;
+      T = T_target1.inverse() * T_source;
+      pcl::transformPointCloud(*source_cloud, *source_cloud, T_source.inverse());
+      pcl::transformPointCloud(*target_cloud, *target_cloud, T_target1.inverse());
+      pcl::IterativeClosestPoint<PointType, PointType> icp;
+      icp.setMaxCorrespondenceDistance(1);
+      icp.setMaximumIterations(100);
+      icp.setTransformationEpsilon(1e-8);
+      icp.setEuclideanFitnessEpsilon(1e-8);
+      icp.setRANSACIterations(5);
+      icp.setRANSACOutlierRejectionThreshold(1);
+      icp.setInputSource(source_cloud);
+      icp.setInputTarget(target_cloud);
+      std::cout << "T before:" << T << std::endl;
+      T(0, 3) = 0;
+      T(1, 3) = 0;
+      T(2, 3) = 0;
+      icp.align(*aligned_cloud, T);
+      T = icp.getFinalTransformation();
+      std::cout << "T after:" << T << std::endl;
+      T_before_ = T_source;
+      std::cout << "T_before:" << T_before_ << std::endl;
+
+      pcl::io::savePLYFile("/home/zc/source.ply", *source_cloud);
+      pcl::io::savePLYFile("/home/zc/target.ply", *target_cloud);
+      pcl::io::savePLYFile("/home/zc/aligned.ply", *aligned_cloud);
+      Eigen::Matrix4d T_target;
+      T_target.setIdentity();
+      T_target.block<3, 3>(0, 0) = keyframes[loop_id_].first.second.toRotationMatrix().cast<double>();
+      T_target.block<3, 1>(0, 3) = keyframes[loop_id_].first.first.cast<double>();
+      LoopClosure(loop_id_, keyframes_loop_.size() - 1, T_target, T_target * T.cast<double>());
+      loop_detected_ = false;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
+}
+
+void hj::OdomNode::LoopClosure(const int index1, const int index2, const Eigen::Matrix4d &pose1, const Eigen::Matrix4d &pose2)
+{
+  double para_t[keyframes_loop_.size()][3];
+  double para_q[keyframes_loop_.size()][4];
+  for (int i = 0; i < keyframes_loop_.size(); i++)
+  {
+    para_t[i][0] = keyframes_loop_[i].first.first(0, 3);
+    para_t[i][1] = keyframes_loop_[i].first.first(1, 3);
+    para_t[i][2] = keyframes_loop_[i].first.first(2, 3);
+    Eigen::Quaterniond temp_q = Eigen::Quaterniond(keyframes_loop_[i].first.second.cast<double>());
+
+    para_q[i][0] = temp_q.x();
+    para_q[i][1] = temp_q.y();
+    para_q[i][2] = temp_q.z();
+    para_q[i][3] = temp_q.w();
+  }
+
+  ceres::Problem problem;
+  ceres::LocalParameterization *local_parameterization = new ceres::EigenQuaternionParameterization();
+
+  for (int i = 0; i < keyframes_loop_.size(); i++)
+  {
+
+    problem.AddParameterBlock(para_q[i], 4, local_parameterization);
+    problem.AddParameterBlock(para_t[i], 3);
+  }
+  problem.SetParameterBlockConstant(para_q[0]);
+  problem.SetParameterBlockConstant(para_t[0]);
+
+  for (int i = 0; i < keyframes_loop_.size() - 1; i++)
+  {
+    Eigen::Vector3d para_t_constraint;
+    Eigen::Vector4f para_q_constraint;
+
+    Eigen::Quaterniond temp_q_2 = keyframes_loop_[i + 1].first.second.cast<double>();
+
+    Eigen::Vector3d temp_t_2(keyframes_loop_[i + 1].first.first(0, 3), keyframes_loop_[i + 1].first.first(1, 3), keyframes_loop_[i + 1].first.first(2, 3));
+    Eigen::Quaterniond temp_q_1 = keyframes_loop_[i].first.second.cast<double>();
+    Eigen::Vector3d temp_t_1(keyframes_loop_[i].first.first(0, 3), keyframes_loop_[i].first.first(1, 3), keyframes_loop_[i].first.first(2, 3));
+
+    Eigen::Matrix3d R_constraint;
+    Eigen::Vector3d t_constraint;
+
+    R_constraint = temp_q_2.toRotationMatrix().inverse() * temp_q_1.toRotationMatrix();
+    t_constraint = temp_q_2.toRotationMatrix().inverse() * (temp_t_1 - temp_t_2);
+
+    Eigen::Quaterniond q_constraint(R_constraint);
+
+    para_t_constraint = t_constraint;
+    para_q_constraint[0] = q_constraint.x();
+    para_q_constraint[1] = q_constraint.y();
+    para_q_constraint[2] = q_constraint.z();
+    para_q_constraint[3] = q_constraint.w();
+    ceres::CostFunction *cost_function = consecutivePose::Create(
+        para_q_constraint,
+        para_t_constraint);
+    problem.AddResidualBlock(cost_function, NULL, para_q[i], para_t[i], para_q[i + 1], para_t[i + 1]);
+  }
+
+  Eigen::Vector3d para_t_loop;
+  Eigen::Vector4f para_q_loop;
+  Eigen::Matrix3d loop_R2 = pose2.block<3, 3>(0, 0);
+  Eigen::Quaterniond loop_q_2(loop_R2);
+  Eigen::Vector3d loop_t_2(pose2(0, 3), pose2(1, 3), pose2(2, 3));
+  Eigen::Matrix3d loop_R1 = pose1.block<3, 3>(0, 0);
+  Eigen::Quaterniond loop_q_1(loop_R1);
+  Eigen::Vector3d loop_t_1(pose1(0, 3), pose1(1, 3), pose1(2, 3));
+
+  Eigen::Matrix3d R_constraint_loop;
+  Eigen::Vector3d t_constraint_loop;
+
+  R_constraint_loop = loop_R2.inverse() * loop_R1;
+  t_constraint_loop = loop_R2.inverse() * (loop_t_1 - loop_t_2);
+
+  Eigen::Quaterniond q_constraint_loop(R_constraint_loop);
+
+  para_t_loop = t_constraint_loop;
+  para_q_loop[0] = q_constraint_loop.x();
+  para_q_loop[1] = q_constraint_loop.y();
+  para_q_loop[2] = q_constraint_loop.z();
+  para_q_loop[3] = q_constraint_loop.w();
+  ceres::CostFunction *cost_function = loopPose::Create(
+      para_q_loop,
+      para_t_loop);
+  problem.AddResidualBlock(cost_function, NULL, para_q[index1], para_t[index1], para_q[index2], para_t[index2]);
+  problem.SetParameterBlockConstant(para_q[index1]);
+  problem.SetParameterBlockConstant(para_t[index1]);
+
+  ceres::Solver::Options options;
+  options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
+  options.num_threads = 20;
+  options.minimizer_progress_to_stdout = true;
+  options.max_solver_time_in_seconds = 600;
+  options.max_num_iterations = 1000;
+
+  ceres::Solver::Summary summary;
+  ceres::Solve(options, &problem, &summary);
+  if (summary.termination_type == ceres::CONVERGENCE || summary.final_cost < 1)
+  {
+    std::cout << " converge:" << summary.final_cost << std::endl;
+  }
+  else
+  {
+    std::cout << " not converge :" << summary.final_cost << std::endl;
+  }
+  pcl::PointCloud<PointType>::Ptr map(new pcl::PointCloud<PointType>);
+  this->mtx_loop_.lock();
+  for (int i = 0; i < keyframes_loop_.size(); i++)
+  {
+    Eigen::Matrix3d R;
+    Eigen::Quaterniond q(para_q[i][3], para_q[i][0], para_q[i][1], para_q[i][2]);
+    keyframes[i].first.second = q.cast<float>();
+    keyframes[i].first.first = Eigen::Vector3f(para_t[i][0], para_t[i][1], para_t[i][2]);
+    pcl::PointCloud<PointType>::Ptr cloud(new pcl::PointCloud<PointType>);
+    pcl::PointCloud<PointType>::Ptr cloud_tran(new pcl::PointCloud<PointType>);
+    Eigen::Matrix4f pose = Eigen::Matrix4f::Identity();
+    pose.block<3, 3>(0, 0) = keyframes_loop_[i].first.second.toRotationMatrix();
+    pose.block<3, 1>(0, 3) = keyframes_loop_[i].first.first;
+    // std::cout << "pose:" << pose << std::endl;
+
+    pcl::transformPointCloud(*keyframes_loop_[i].second, *cloud, pose.inverse());
+    Eigen::Matrix4f pose_tran = Eigen::Matrix4f::Identity();
+    pose_tran.block<3, 3>(0, 0) = q.toRotationMatrix().cast<float>();
+    pose_tran.block<3, 1>(0, 3) = Eigen::Vector3f(para_t[i][0], para_t[i][1], para_t[i][2]);
+    // std::cout << "pose_tran:" << pose_tran << std::endl;
+    pcl::transformPointCloud(*cloud, *cloud_tran, pose_tran);
+    pcl::copyPointCloud(*cloud_tran, *keyframes[i].second);
+    *map += *keyframes_loop_[i].second;
+  }
+  pcl::io::savePLYFile("/home/zc/map.ply", *map);
+  T_after_ = Eigen::Matrix4f::Identity();
+  T_after_.block<3, 3>(0, 0) = keyframes[keyframes_loop_.size() - 1].first.second.toRotationMatrix();
+  T_after_.block<3, 1>(0, 3) = keyframes[keyframes_loop_.size() - 1].first.first;
+  std::cout << "T_after:" << T_after_ << std::endl;
+  this->mtx_loop_.unlock();
+  is_optimized_ = true;
 }

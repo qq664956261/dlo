@@ -12,7 +12,7 @@ project(hj_slam)
 
 add_compile_options(-std=c++14)
 set(CMAKE_BUILD_TYPE "Release")
-
+add_definitions(-Wno-deprecated-declarations)
 find_package( PCL REQUIRED )
 include_directories(${PCL_INCLUDE_DIRS})
 add_definitions(${PCL_DEFINITIONS})
@@ -105,7 +105,7 @@ target_link_libraries(nano_gicp ${PCL_LIBRARIES} ${OpenMP_LIBS} nanoflann)
 target_include_directories(nano_gicp PUBLIC include ${PCL_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR})
 
 # Odometry Node
-add_executable(dlo_odom_node src/hj/odom_node.cc src/hj/odom.cc src/hj/PointReader.cpp src/hj/ExtrinsicErrorTerm.cpp)
+add_executable(dlo_odom_node src/hj/odom_node.cc src/hj/odom.cc src/hj/PointReader.cpp src/hj/ExtrinsicErrorTerm.cpp src/hj/scancontext.cpp)
 add_dependencies(dlo_odom_node ${catkin_EXPORTED_TARGETS})
 target_compile_options(dlo_odom_node PRIVATE ${OpenMP_FLAGS})
 target_link_libraries(dlo_odom_node ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenMP_LIBS} Threads::Threads nano_gicp ${CERES_LIBRARIES} ${OpenCV_LIBS})

@@ -30,8 +30,8 @@ private:
 
   void keyframeCB(const sensor_msgs::PointCloud2ConstPtr& keyframe);
 
-  bool savePcd(direct_lidar_odometry::save_pcd::Request& req,
-               direct_lidar_odometry::save_pcd::Response& res);
+  bool savePcd(hj_slam::save_pcd::Request& req,
+               hj_slam::save_pcd::Response& res);
 
   void getParams();
 
