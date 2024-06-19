@@ -291,7 +291,7 @@ private:
   std::deque<double> lidar_times_;
   bool use_calib_{false};
   std::vector<double> keyframes_timestamps_;
-  double loop_distance_{5};
+  double loop_distance_{0.5};
   std::atomic<bool> loop_detected_{false};
   double loop_time_thre_{30.0};
   double last_loop_time_{0.0};
@@ -306,4 +306,5 @@ private:
   Eigen::Matrix4f T_before_;
   Eigen::Matrix4f T_after_;
   std::shared_ptr<SCManager> sc_manager_ptr_;
+  int loop_size_{0};
 };

@@ -41,7 +41,7 @@ struct consecutivePose
 		residuals.template block<3, 1>(0, 0) = relative_t - translation3;
 		residuals.template block<3, 1>(3, 0) = T(30) * residual_q;
 		//Eigen::Matrix<T, 6, 6> sqrt_info = T(100) * Eigen::Matrix<T, 6, 6>::Identity();
-		Eigen::Matrix<T, 6, 6> sqrt_info = T(100) * Eigen::Matrix<T, 6, 6>::Identity();
+		Eigen::Matrix<T, 6, 6> sqrt_info = T(10) * Eigen::Matrix<T, 6, 6>::Identity();
 
 		residuals.applyOnTheLeft(sqrt_info);
 
@@ -84,7 +84,7 @@ struct loopPose
 		residuals.template block<3, 1>(0, 0) = relative_t - translation3;
 		residuals.template block<3, 1>(3, 0) = T(30) * residual_q;
 		//Eigen::Matrix<T, 6, 6> sqrt_info = T(100) * Eigen::Matrix<T, 6, 6>::Identity();
-		Eigen::Matrix<T, 6, 6> sqrt_info = T(1000) * Eigen::Matrix<T, 6, 6>::Identity();
+		Eigen::Matrix<T, 6, 6> sqrt_info = T(10000) * Eigen::Matrix<T, 6, 6>::Identity();
 
 		residuals.applyOnTheLeft(sqrt_info);
 
