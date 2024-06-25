@@ -1463,17 +1463,27 @@ void hj::OdomNode::updateKeyframes()
   // loop
   // if (!loop_detected_)
   // {
+
   //   if (closest_d < loop_distance_)
   //   {
+
   //     if (scan_stamp.toSec() - keyframes_timestamps_[closest_idx] > loop_time_thre_)
   //     {
+
   //       if (scan_stamp.toSec() - last_loop_time_ > loop_time_thre_)
   //       {
   //         std::cout << "loop detected" << std::endl;
+  //         std::cout << "closest_idx: " << closest_idx << std::endl;
+  //         std::cout << "closest_d: " << closest_d << std::endl;
   //         this->keyframes.push_back(std::make_pair(std::make_pair(this->pose, this->rotq), this->current_scan_t));
   //         this->keyframes_timestamps_.push_back(scan_stamp.toSec());
+  //         pcl::PointCloud<PointType>::Ptr keyframe_loop(new pcl::PointCloud<PointType>);
+  //         pcl::copyPointCloud(*current_scan_t, *keyframe_loop);
+  //         this->keyframes_loop_.push_back(std::make_pair(std::make_pair(this->pose, this->rotq), keyframe_loop));
+  //         loop_size_ = keyframes_loop_.size();
+  //         std::cout << "keyframes_timestamps_: " << keyframes_timestamps_.size() << std::endl;
   //         this->loop_source_cloud_ = pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
-  //         last_loop_time_ = scan_stamp.toSec();
+  //         // last_loop_time_ = scan_stamp.toSec();
   //         loop_id_ = closest_idx;
   //         pcl::copyPointCloud(*this->current_scan, *this->loop_source_cloud_);
   //         loop_detected_ = true;
@@ -1481,6 +1491,8 @@ void hj::OdomNode::updateKeyframes()
   //     }
   //   }
   // }
+
+  // sc
   if (!loop_detected_)
   {
     if (closest_d < loop_distance_)
@@ -1503,7 +1515,8 @@ void hj::OdomNode::updateKeyframes()
             i++;
           }
           // get indices for top K nearest neighbor keyframe poses
-          this->pushSubmapIndices(ds, this->submap_knn_, keyframe_nn);
+          // this->pushSubmapIndices(ds, this->submap_knn_, keyframe_nn);
+          this->pushSubmapIndices(ds, 50, keyframe_nn);
           sc_manager_ptr_ = std::make_shared<SCManager>();
           for (int i = 0; i < submap_kf_idx_curr.size(); i++)
           {
@@ -1521,14 +1534,19 @@ void hj::OdomNode::updateKeyframes()
           if (sc_closest_frame_id != -1)
           {
             std::cout << "loop detected" << std::endl;
+            std::cout << "loop detected" << std::endl;
+            std::cout << "closest_idx: " << closest_idx << std::endl;
+            std::cout << "closest_d: " << closest_d << std::endl;
             this->keyframes.push_back(std::make_pair(std::make_pair(this->pose, this->rotq), this->current_scan_t));
             this->keyframes_timestamps_.push_back(scan_stamp.toSec());
             pcl::PointCloud<PointType>::Ptr keyframe_loop(new pcl::PointCloud<PointType>);
             pcl::copyPointCloud(*current_scan_t, *keyframe_loop);
             this->keyframes_loop_.push_back(std::make_pair(std::make_pair(this->pose, this->rotq), keyframe_loop));
             this->loop_source_cloud_ = pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
-            last_loop_time_ = scan_stamp.toSec();
+            // last_loop_time_ = scan_stamp.toSec();
             loop_id_ = submap_kf_idx_curr[sc_closest_frame_id];
+            loop_size_ = keyframes_loop_.size();
+            loop_yaw_ = detect_result.second;
             pcl::copyPointCloud(*this->current_scan, *this->loop_source_cloud_);
             loop_detected_ = true;
           }
@@ -2207,7 +2225,7 @@ void hj::OdomNode::runLoopClosure()
       //    keyframes_loop_[i].second.reset(new pcl::PointCloud<PointType>);
       //    pcl::copyPointCloud(*keyframes[i].second, *keyframes_loop_[i].second);
       //  }
-      loop_size_ = keyframes_loop_.size();
+
       std::cout << "222" << std::endl;
       pcl::PointCloud<PointType>::Ptr source_cloud(new pcl::PointCloud<PointType>);
       pcl::PointCloud<PointType>::Ptr target_cloud(new pcl::PointCloud<PointType>);
@@ -2223,6 +2241,8 @@ void hj::OdomNode::runLoopClosure()
       T_target1.block<3, 1>(0, 3) = keyframes[loop_id_].first.first;
       this->mtx_loop_.unlock();
       T = T_target1.inverse() * T_source;
+      pcl::io::savePLYFile("/home/zc/source_map.ply", *source_cloud);
+      pcl::io::savePLYFile("/home/zc/target_map.ply", *target_cloud);
       pcl::transformPointCloud(*source_cloud, *source_cloud, T_source.inverse());
       pcl::transformPointCloud(*target_cloud, *target_cloud, T_target1.inverse());
       pcl::IterativeClosestPoint<PointType, PointType> icp;
@@ -2232,14 +2252,27 @@ void hj::OdomNode::runLoopClosure()
       icp.setEuclideanFitnessEpsilon(1e-8);
       icp.setRANSACIterations(5);
       icp.setRANSACOutlierRejectionThreshold(1);
+      pcl::VoxelGrid<PointType> vf;
+      vf.setLeafSize(0.1, 0.1, 0.1);
+      vf.setInputCloud(source_cloud);
+      vf.filter(*source_cloud);
+      vf.setInputCloud(target_cloud);
+      vf.filter(*target_cloud);
       icp.setInputSource(source_cloud);
       icp.setInputTarget(target_cloud);
+
+      std::cout << "loop_id_:" << loop_id_ << std::endl;
+      std::cout << "loop_size_:" << loop_size_ << std::endl;
+      std::cout << "T_source:" << T_source << std::endl;
+      std::cout << "T_target1:" << T_target1 << std::endl;
       std::cout << "T before:" << T << std::endl;
-      // T(0, 3) = 0;
-      // T(1, 3) = 0;
-      // T(2, 3) = 0;
+      // Eigen::AngleAxisd rotation_vector(loop_yaw_, Eigen::Vector3d(0, 0, 1));
+      // Eigen::Matrix3f rotation_matrix = rotation_vector.toRotationMatrix().cast<float>();
+      // T.block<3, 3>(0, 0) = rotation_matrix.inverse();
+
       icp.align(*aligned_cloud, T);
       T = icp.getFinalTransformation();
+
       std::cout << "T after:" << T << std::endl;
       T_before_ = T_source;
       std::cout << "T_before:" << T_before_ << std::endl;
@@ -2247,6 +2280,15 @@ void hj::OdomNode::runLoopClosure()
       pcl::io::savePLYFile("/home/zc/source.ply", *source_cloud);
       pcl::io::savePLYFile("/home/zc/target.ply", *target_cloud);
       pcl::io::savePLYFile("/home/zc/aligned.ply", *aligned_cloud);
+      double score = icp.getFitnessScore();
+
+      std::cout << "score:" << score << std::endl;
+      // if(score > 0.2)
+      if (score > 10)
+      {
+        loop_detected_ = false;
+        continue;
+      }
       Eigen::Matrix4d T_target;
       T_target.setIdentity();
       this->mtx_loop_.lock();
@@ -2254,6 +2296,7 @@ void hj::OdomNode::runLoopClosure()
       T_target.block<3, 1>(0, 3) = keyframes[loop_id_].first.first.cast<double>();
       this->mtx_loop_.unlock();
       LoopClosure(loop_id_, loop_size_ - 1, T_target, T_target * T.cast<double>());
+
       loop_detected_ = false;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -2352,52 +2395,57 @@ void hj::OdomNode::LoopClosure(const int index1, const int index2, const Eigen::
   options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
   options.num_threads = 20;
   options.minimizer_progress_to_stdout = true;
-  options.max_solver_time_in_seconds = 600;
-  options.max_num_iterations = 1000;
+  options.max_solver_time_in_seconds = 5;
+  options.max_num_iterations = 100;
 
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
-  if (summary.termination_type == ceres::CONVERGENCE || summary.final_cost < 1)
+  bool ceres_converge = false;
+  // if (summary.termination_type == ceres::CONVERGENCE || summary.final_cost < 1)
+  if (summary.final_cost < 1)
   {
+    ceres_converge = true;
     std::cout << " converge:" << summary.final_cost << std::endl;
   }
   else
   {
+    ceres_converge = false;
     std::cout << " not converge :" << summary.final_cost << std::endl;
   }
-  pcl::PointCloud<PointType>::Ptr map_after(new pcl::PointCloud<PointType>);
-  pcl::PointCloud<PointType>::Ptr map_before(new pcl::PointCloud<PointType>);
-  this->mtx_loop_.lock();
-  for (int i = 0; i < loop_size_; i++)
+  if (ceres_converge)
   {
-    Eigen::Matrix3d R;
-    Eigen::Quaterniond q(para_q[i][3], para_q[i][0], para_q[i][1], para_q[i][2]);
-    keyframes[i].first.second = q.cast<float>();
-    keyframes[i].first.first = Eigen::Vector3f(para_t[i][0], para_t[i][1], para_t[i][2]);
-    pcl::PointCloud<PointType>::Ptr cloud(new pcl::PointCloud<PointType>);
-    pcl::PointCloud<PointType>::Ptr cloud_tran(new pcl::PointCloud<PointType>);
-    Eigen::Matrix4f pose = Eigen::Matrix4f::Identity();
-    pose.block<3, 3>(0, 0) = keyframes_loop_[i].first.second.toRotationMatrix();
-    pose.block<3, 1>(0, 3) = keyframes_loop_[i].first.first;
-    // std::cout << "pose:" << pose << std::endl;
-    // std::cout<<"keyframes[i].first.first:"<<keyframes[i].first.first<<std::endl;
-    // std::cout<<"keyframes_loop_[i].first.first:"<<keyframes_loop_[i].first.first<<std::endl;
-    pcl::transformPointCloud(*keyframes_loop_[i].second, *cloud, pose.inverse());
-    Eigen::Matrix4f pose_tran = Eigen::Matrix4f::Identity();
-    pose_tran.block<3, 3>(0, 0) = q.toRotationMatrix().cast<float>();
-    pose_tran.block<3, 1>(0, 3) = Eigen::Vector3f(para_t[i][0], para_t[i][1], para_t[i][2]);
-    // std::cout << "pose_tran:" << pose_tran << std::endl;
-    pcl::transformPointCloud(*cloud, *cloud_tran, pose_tran);
-    pcl::copyPointCloud(*cloud_tran, *keyframes[i].second);
-    *map_after += *cloud_tran;
-    *map_before += *keyframes_loop_[i].second;
+    pcl::PointCloud<PointType>::Ptr map_after(new pcl::PointCloud<PointType>);
+    pcl::PointCloud<PointType>::Ptr map_before(new pcl::PointCloud<PointType>);
+    this->mtx_loop_.lock();
+    for (int i = 0; i < loop_size_; i++)
+    {
+      Eigen::Matrix3d R;
+      Eigen::Quaterniond q(para_q[i][3], para_q[i][0], para_q[i][1], para_q[i][2]);
+      keyframes[i].first.second = q.cast<float>();
+      keyframes[i].first.first = Eigen::Vector3f(para_t[i][0], para_t[i][1], para_t[i][2]);
+      // pcl::PointCloud<PointType>::Ptr cloud(new pcl::PointCloud<PointType>);
+      // pcl::PointCloud<PointType>::Ptr cloud_tran(new pcl::PointCloud<PointType>);
+      // Eigen::Matrix4f pose = Eigen::Matrix4f::Identity();
+      // pose.block<3, 3>(0, 0) = keyframes_loop_[i].first.second.toRotationMatrix();
+      // pose.block<3, 1>(0, 3) = keyframes_loop_[i].first.first;
+      // pcl::transformPointCloud(*keyframes_loop_[i].second, *cloud, pose.inverse());
+      // Eigen::Matrix4f pose_tran = Eigen::Matrix4f::Identity();
+      // pose_tran.block<3, 3>(0, 0) = q.toRotationMatrix().cast<float>();
+      // pose_tran.block<3, 1>(0, 3) = Eigen::Vector3f(para_t[i][0], para_t[i][1], para_t[i][2]);
+
+      // pcl::transformPointCloud(*cloud, *cloud_tran, pose_tran);
+      // pcl::copyPointCloud(*cloud_tran, *keyframes[i].second);
+      // *map_after += *cloud_tran;
+      // *map_before += *keyframes_loop_[i].second;
+    }
+    pcl::io::savePLYFile("/home/zc/map_after.ply", *map_after);
+    pcl::io::savePLYFile("/home/zc/map_before.ply", *map_before);
+    T_after_ = Eigen::Matrix4f::Identity();
+    T_after_.block<3, 3>(0, 0) = keyframes[loop_size_ - 1].first.second.toRotationMatrix();
+    T_after_.block<3, 1>(0, 3) = keyframes[loop_size_ - 1].first.first;
+    std::cout << "T_after:" << T_after_ << std::endl;
+    this->mtx_loop_.unlock();
+    is_optimized_ = true;
+    last_loop_time_ = scan_stamp.toSec();
   }
-  pcl::io::savePLYFile("/home/zc/map_after.ply", *map_after);
-  pcl::io::savePLYFile("/home/zc/map_before.ply", *map_before);
-  T_after_ = Eigen::Matrix4f::Identity();
-  T_after_.block<3, 3>(0, 0) = keyframes[loop_size_ - 1].first.second.toRotationMatrix();
-  T_after_.block<3, 1>(0, 3) = keyframes[loop_size_ - 1].first.first;
-  std::cout << "T_after:" << T_after_ << std::endl;
-  this->mtx_loop_.unlock();
-  is_optimized_ = true;
 }
