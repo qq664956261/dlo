@@ -296,6 +296,7 @@ private:
   double loop_time_thre_{30.0};
   double last_loop_time_{0.0};
   int loop_id_{0};
+  double loop_yaw_{0.0};
   std::vector<std::pair<std::pair<Eigen::Vector3f, Eigen::Quaternionf>, pcl::PointCloud<PointType>::Ptr>> keyframes_loop_;
   std::vector<double> keyframes_timestamps_loop_;
   pcl::PointCloud<PointType>::Ptr loop_source_cloud_;

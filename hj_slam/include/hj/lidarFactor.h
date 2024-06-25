@@ -2,7 +2,8 @@
 #include <ceres/ceres.h>
 #include <ceres/rotation.h>
 #include <Eigen/Dense>
-
+#include <sophus/se3.h>
+#include <sophus/so3.h>
 inline Eigen::Matrix3d skewd(const Eigen::Vector3d &x)
 {
 	Eigen::Matrix3d skew1 = Eigen::Matrix3d::Zero();
@@ -36,12 +37,16 @@ struct consecutivePose
 		relative_t = quaternion2.inverse() * (translation1 - translation2);
 		Eigen::Matrix<T, 3, 1> residual_q;
 		residual_q = (relative_q * quaternion3.inverse()).vec();
+		
+
+
+
 
 		Eigen::Map<Eigen::Matrix<T, 6, 1>> residuals(residual);
 		residuals.template block<3, 1>(0, 0) = relative_t - translation3;
-		residuals.template block<3, 1>(3, 0) = T(30) * residual_q;
+		residuals.template block<3, 1>(3, 0) = residual_q;
 		//Eigen::Matrix<T, 6, 6> sqrt_info = T(100) * Eigen::Matrix<T, 6, 6>::Identity();
-		Eigen::Matrix<T, 6, 6> sqrt_info = T(10) * Eigen::Matrix<T, 6, 6>::Identity();
+		Eigen::Matrix<T, 6, 6> sqrt_info = T(1) * Eigen::Matrix<T, 6, 6>::Identity();
 
 		residuals.applyOnTheLeft(sqrt_info);
 
@@ -80,9 +85,15 @@ struct loopPose
 		Eigen::Matrix<T, 3, 1> residual_q;
 		residual_q = (relative_q * quaternion3.inverse()).vec();
 
+
+
+
+
+
+
 		Eigen::Map<Eigen::Matrix<T, 6, 1>> residuals(residual);
 		residuals.template block<3, 1>(0, 0) = relative_t - translation3;
-		residuals.template block<3, 1>(3, 0) = T(30) * residual_q;
+		residuals.template block<3, 1>(3, 0) = residual_q;
 		//Eigen::Matrix<T, 6, 6> sqrt_info = T(100) * Eigen::Matrix<T, 6, 6>::Identity();
 		Eigen::Matrix<T, 6, 6> sqrt_info = T(10000) * Eigen::Matrix<T, 6, 6>::Identity();
 

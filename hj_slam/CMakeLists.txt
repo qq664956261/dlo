@@ -21,6 +21,8 @@ link_directories(${PCL_LIBRARY_DIRS})
 find_package( Eigen3 REQUIRED )
 include_directories(${EIGEN3_INCLUDE_DIR})
 
+find_package( Sophus REQUIRED )
+
 include(FindOpenMP)
 if(OPENMP_FOUND)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
@@ -74,6 +76,7 @@ include_directories(include
 ${catkin_INCLUDE_DIRS}
 ${CERES_INCLUDE_DIRS}
 ${OpenCV_INCLUDE_DIRS}
+${Sophus_INCLUDE_DIRS}
 livox_ros_driver2)
 
 include_directories("${CMAKE_SOURCE_DIR}/hj_interface/include")
@@ -108,7 +111,7 @@ target_include_directories(nano_gicp PUBLIC include ${PCL_INCLUDE_DIRS} ${EIGEN3
 add_executable(dlo_odom_node src/hj/odom_node.cc src/hj/odom.cc src/hj/PointReader.cpp src/hj/ExtrinsicErrorTerm.cpp src/hj/scancontext.cpp)
 add_dependencies(dlo_odom_node ${catkin_EXPORTED_TARGETS})
 target_compile_options(dlo_odom_node PRIVATE ${OpenMP_FLAGS})
-target_link_libraries(dlo_odom_node ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenMP_LIBS} Threads::Threads nano_gicp ${CERES_LIBRARIES} ${OpenCV_LIBS})
+target_link_libraries(dlo_odom_node ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenMP_LIBS} Threads::Threads nano_gicp ${CERES_LIBRARIES} ${OpenCV_LIBS} ${Sophus_LIBRARIES})
 
 # Mapping Node
 add_executable (dlo_map_node src/hj/map_node.cc src/hj/map.cc)

@@ -87,9 +87,9 @@ public:
     // const int    PC_NUM_RING = 20; // 20 in the original paper (IROS 18)
     // const int    PC_NUM_SECTOR = 60; // 60 in the original paper (IROS 18)
         const int    PC_NUM_RING = 20; // 20 in the original paper (IROS 18)
-    const int    PC_NUM_SECTOR = 60; // 60 in the original paper (IROS 18)
+    const int    PC_NUM_SECTOR = 120; // 60 in the original paper (IROS 18)
     // double PC_MAX_RADIUS = 80.0; // 80 meter max in the original paper (IROS 18)
-    double PC_MAX_RADIUS = 20; // 80 meter max in the original paper (IROS 18)
+    double PC_MAX_RADIUS = 40; // 80 meter max in the original paper (IROS 18)
     const double PC_UNIT_SECTORANGLE = 360.0 / double(PC_NUM_SECTOR);
     const double PC_UNIT_RINGGAP = PC_MAX_RADIUS / double(PC_NUM_RING);
 
@@ -104,7 +104,7 @@ public:
     double 
     
     // SC_DIST_THRES = 0.2; // 0.4-0.6 is good choice for using with robust kernel (e.g., Cauchy, DCS) + icp fitness threshold / if not, recommend 0.1-0.15
-     SC_DIST_THRES = 0.4; // 0.4-0.6 is good choice for using with robust kernel (e.g., Cauchy, DCS) + icp fitness threshold / if not, recommend 0.1-0.15
+     SC_DIST_THRES = 0.25; // 0.4-0.6 is good choice for using with robust kernel (e.g., Cauchy, DCS) + icp fitness threshold / if not, recommend 0.1-0.15
     // const double SC_DIST_THRES = 0.7; // 0.4-0.6 is good choice for using with robust kernel (e.g., Cauchy, DCS) + icp fitness threshold / if not, recommend 0.1-0.15
 
     // config 
