@@ -27,10 +27,11 @@ public:
 private:
   void abortTimerCB(const ros::TimerEvent &e);
   // void icpCB(const livox_ros_driver2::CustomMsgConstPtr& pc);
-  void icpCB(const sensor_msgs::MultiEchoLaserScan::ConstPtr& multi_echo_msg);
-  //void icpCB(const sensor_msgs::LaserScan::ConstPtr &pc);
+  //void icpCB(const sensor_msgs::MultiEchoLaserScan::ConstPtr& multi_echo_msg);
+  void icpCB(const sensor_msgs::LaserScan::ConstPtr &pc);
 
-  void imuCB(const sensor_msgs::Imu::ConstPtr &imu);
+  //void imuCB(const sensor_msgs::Imu::ConstPtr &imu);
+  void imuCB(const hj_interface::ImuConstPtr &imu);
   bool saveTrajectory(hj_slam::save_traj::Request &req,
                       hj_slam::save_traj::Response &res);
 
@@ -289,7 +290,8 @@ private:
   VecOfPoses lidar_poses_;
   std::deque<double> odom_times_;
   std::deque<double> lidar_times_;
-  bool use_calib_{false};
+  bool use_calib_{true};
+  bool use_fuison_result_{false};
   std::vector<double> keyframes_timestamps_;
   double loop_distance_{0.5};
   std::atomic<bool> loop_detected_{false};

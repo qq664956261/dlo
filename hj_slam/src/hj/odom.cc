@@ -30,11 +30,10 @@ hj::OdomNode::OdomNode(ros::NodeHandle node_handle) : nh(node_handle)
 
   // this->icp_sub = this->nh.subscribe("/livox/lidar", 1, &hj::OdomNode::icpCB, this);
   // // this->imu_sub = this->nh.subscribe("/livox/imu", 1, &hj::OdomNode::imuCB, this);
-  this->icp_sub = this->nh.subscribe("/horizontal_laser_2d", 1, &hj::OdomNode::icpCB, this);
-  this->imu_sub = this->nh.subscribe("/imu", 1, &hj::OdomNode::imuCB, this);
-  // this->icp_sub = this->nh.subscribe("/scan", 1, &hj::OdomNode::icpCB, this);
-  // this->imu_sub = this->nh.subscribe("/imu_data", 1, &hj::OdomNode::imuCB, this);
-  //  odom_sub_ = hj_bf::HJSubscribe("/fusion_result", 1000, &hj::OdomNode::CallbackOdom, this);
+  // this->icp_sub = this->nh.subscribe("/horizontal_laser_2d", 1, &hj::OdomNode::icpCB, this);
+  // this->imu_sub = this->nh.subscribe("/imu", 1, &hj::OdomNode::imuCB, this);
+  this->icp_sub = this->nh.subscribe("/scan", 1, &hj::OdomNode::icpCB, this);
+  this->imu_sub = this->nh.subscribe("/imu_chatter", 1, &hj::OdomNode::imuCB, this);
   this->odom_sub = this->nh.subscribe("/fusion_result", 1000, &hj::OdomNode::CallbackOdom, this);
 
   this->odom_pub = this->nh.advertise<nav_msgs::Odometry>("odom", 1);
@@ -747,8 +746,8 @@ void hj::OdomNode::initializeDLO()
  **/
 
 // void hj::OdomNode::icpCB(const livox_ros_driver2::CustomMsgConstPtr &pc)
-void hj::OdomNode::icpCB(const sensor_msgs::MultiEchoLaserScan::ConstPtr &pc)
-// void hj::OdomNode::icpCB(const sensor_msgs::LaserScan::ConstPtr &pc)
+// void hj::OdomNode::icpCB(const sensor_msgs::MultiEchoLaserScan::ConstPtr &pc)
+void hj::OdomNode::icpCB(const sensor_msgs::LaserScan::ConstPtr &pc)
 {
   double then = ros::Time::now().toSec();
   this->scan_stamp = pc->header.stamp;
@@ -758,57 +757,57 @@ void hj::OdomNode::icpCB(const sensor_msgs::MultiEchoLaserScan::ConstPtr &pc)
   // If there are too few points in the pointcloud, try again
   this->current_scan = pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
   // LaserScan
-  // laser_geometry::LaserProjection projector;
-  // sensor_msgs::PointCloud2 cloud2;
+  laser_geometry::LaserProjection projector;
+  sensor_msgs::PointCloud2 cloud2;
 
-  // // 将LaserScan转换为PointCloud2
-  // projector.projectLaser(*pc, cloud2);
+  // 将LaserScan转换为PointCloud2
+  projector.projectLaser(*pc, cloud2);
 
-  // // 然后将PointCloud2转换为PCL的点云格式
-  // pcl::PointCloud<PointType>::Ptr cloud(new pcl::PointCloud<PointType>);
-  // pcl::fromROSMsg(cloud2, *cloud);
-  // for (auto point : cloud->points)
-  // {
-  //   PointType p;
-  //   p.x = point.x;
-  //   p.y = point.y;
-  //   p.z = point.z;
-  //   p.intensity = point.intensity;
-  //   this->current_scan->push_back(p);
-  // }
+  // 然后将PointCloud2转换为PCL的点云格式
+  pcl::PointCloud<PointType>::Ptr cloud(new pcl::PointCloud<PointType>);
+  pcl::fromROSMsg(cloud2, *cloud);
+  for (auto point : cloud->points)
+  {
+    PointType p;
+    p.x = point.x;
+    p.y = point.y;
+    p.z = point.z;
+    p.intensity = point.intensity;
+    this->current_scan->push_back(p);
+  }
 
   // MultiEchoLaserScan
-  for (size_t i = 0; i < pc->ranges.size(); ++i)
-  {
-    // 对每个角度采用最强的回声
-    if (!pc->ranges[i].echoes.empty())
-    {
-      const float range = pc->ranges[i].echoes[0]; // 假设第一个回声是最强回声
+  // for (size_t i = 0; i < pc->ranges.size(); ++i)
+  // {
+  //   // 对每个角度采用最强的回声
+  //   if (!pc->ranges[i].echoes.empty())
+  //   {
+  //     const float range = pc->ranges[i].echoes[0]; // 假设第一个回声是最强回声
 
-      if (range < pc->range_min || range > pc->range_max)
-      {
-        // 跳过超出范围的回声
-        continue;
-      }
+  //     if (range < pc->range_min || range > pc->range_max)
+  //     {
+  //       // 跳过超出范围的回声
+  //       continue;
+  //     }
 
-      // 计算角度（在MultiEchoLaserScan中是增量表示的）
-      float angle = pc->angle_min + i * pc->angle_increment;
+  //     // 计算角度（在MultiEchoLaserScan中是增量表示的）
+  //     float angle = pc->angle_min + i * pc->angle_increment;
 
-      // 转换为笛卡尔坐标
-      float x = range * cos(angle);
-      float y = range * sin(angle);
+  //     // 转换为笛卡尔坐标
+  //     float x = range * cos(angle);
+  //     float y = range * sin(angle);
 
-      // 添加到点云
-      PointType point;
-      point.x = x;
-      point.y = y;
-      point.z = 0;
-      point.intensity = 0;
-      if (x * x + y * y > 1600)
-        continue;
-      current_scan->push_back(point);
-    }
-  }
+  //     // 添加到点云
+  //     PointType point;
+  //     point.x = x;
+  //     point.y = y;
+  //     point.z = 0;
+  //     point.intensity = 0;
+  //     if (x * x + y * y > 1600)
+  //       continue;
+  //     current_scan->push_back(point);
+  //   }
+  // }
   // pcl::io::savePLYFileBinary("/home/zc/current_scan.ply", *this->current_scan);
   // CustomMsgConstPtr
 
@@ -910,7 +909,8 @@ void hj::OdomNode::icpCB(const sensor_msgs::MultiEchoLaserScan::ConstPtr &pc)
  * IMU Callback
  **/
 
-void hj::OdomNode::imuCB(const sensor_msgs::Imu::ConstPtr &imu)
+// void hj::OdomNode::imuCB(const sensor_msgs::Imu::ConstPtr &imu)
+void hj::OdomNode::imuCB(const hj_interface::ImuConstPtr &imu)
 {
 
   if (!this->imu_use_)
@@ -921,17 +921,25 @@ void hj::OdomNode::imuCB(const sensor_msgs::Imu::ConstPtr &imu)
   double ang_vel[3], lin_accel[3];
 
   // Get IMU samples
-  ang_vel[0] = imu->angular_velocity.x;
-  ang_vel[1] = imu->angular_velocity.y;
-  ang_vel[2] = imu->angular_velocity.z;
+  // ang_vel[0] = imu->angular_velocity.x;
+  // ang_vel[1] = imu->angular_velocity.y;
+  // ang_vel[2] = imu->angular_velocity.z;
 
-  lin_accel[0] = imu->linear_acceleration.x;
-  lin_accel[1] = imu->linear_acceleration.y;
-  lin_accel[2] = imu->linear_acceleration.z;
+  // lin_accel[0] = imu->linear_acceleration.x;
+  // lin_accel[1] = imu->linear_acceleration.y;
+  // lin_accel[2] = imu->linear_acceleration.z;
+  ang_vel[0] = imu->gyro_x;
+  ang_vel[1] = imu->gyro_y;
+  ang_vel[2] = imu->gyro_z;
+
+  lin_accel[0] = imu->accel_x;
+  lin_accel[1] = imu->accel_y;
+  lin_accel[2] = imu->accel_z;
 
   if (this->first_imu_time == 0.)
   {
-    this->first_imu_time = imu->header.stamp.toSec();
+    // this->first_imu_time = imu->header.stamp.toSec();
+    this->first_imu_time = imu->custom_time.toSec();
   }
 
   // IMU calibration procedure - do for three seconds
@@ -941,7 +949,8 @@ void hj::OdomNode::imuCB(const sensor_msgs::Imu::ConstPtr &imu)
     static int num_samples = 0;
     static bool print = true;
 
-    if ((imu->header.stamp.toSec() - this->first_imu_time) < this->imu_calib_time_)
+    // if ((imu->header.stamp.toSec() - this->first_imu_time) < this->imu_calib_time_)
+    if ((imu->custom_time.toSec() - this->first_imu_time) < this->imu_calib_time_)
     {
 
       num_samples++;
@@ -983,7 +992,8 @@ void hj::OdomNode::imuCB(const sensor_msgs::Imu::ConstPtr &imu)
   {
 
     // Apply the calibrated bias to the new IMU measurements
-    this->imu_meas.stamp = imu->header.stamp.toSec();
+    // this->imu_meas.stamp = imu->header.stamp.toSec();
+    this->imu_meas.stamp = imu->custom_time.toSec();
 
     this->imu_meas.ang_vel.x = ang_vel[0] - this->imu_bias.gyro.x;
     this->imu_meas.ang_vel.y = ang_vel[1] - this->imu_bias.gyro.y;
@@ -1181,7 +1191,6 @@ void hj::OdomNode::integrateIMU()
 
   // Extract IMU data between the two frames
   std::vector<ImuMeas> imu_frame;
-
   for (const auto &i : this->imu_buffer)
   {
 
@@ -1983,24 +1992,40 @@ void hj::OdomNode::runCalib()
   {
     if (start_calib_)
     {
-      std::cout << "lidar_data_.size():" << lidar_data_.size() << std::endl;
-      std::cout << "odom_data_.size():" << odom_data_.size() << std::endl;
-      buildCalibData();
-      double x, y, z, roll, pitch, yaw;
-      error_term_->runCalibExtrinsicRansac(odom_poses_, lidar_poses_, x, y, z, yaw, pitch, roll);
-      std::cout << "x:" << std::to_string(x) << std::endl;
-      std::cout << "y:" << std::to_string(y) << std::endl;
-      std::cout << "z:" << std::to_string(z) << std::endl;
-      std::cout << "roll:" << std::to_string(roll) << std::endl;
-      std::cout << "pitch:" << std::to_string(pitch) << std::endl;
-      std::cout << "yaw:" << std::to_string(yaw) << std::endl;
-      Eigen::Quaterniond q_odom_lidar = error_term_->ypr2Quat(yaw, pitch, roll);
-      Eigen::Matrix4d T_odom_lidar;
-      T_odom_lidar.setIdentity();
-      T_odom_lidar.block<3, 3>(0, 0) = q_odom_lidar.toRotationMatrix();
-      T_odom_lidar.block<3, 1>(0, 3) = Eigen::Vector3d(x, y, z);
-      saveResult(T_odom_lidar);
-      start_calib_ = false;
+      if (use_fuison_result_)
+      {
+        std::cout << "lidar_data_.size():" << lidar_data_.size() << std::endl;
+        std::cout << "odom_data_.size():" << odom_data_.size() << std::endl;
+        buildCalibData();
+        double x, y, z, roll, pitch, yaw;
+        error_term_->runCalibExtrinsicRansac(odom_poses_, lidar_poses_, x, y, z, yaw, pitch, roll);
+        std::cout << "x:" << std::to_string(x) << std::endl;
+        std::cout << "y:" << std::to_string(y) << std::endl;
+        std::cout << "z:" << std::to_string(z) << std::endl;
+        std::cout << "roll:" << std::to_string(roll) << std::endl;
+        std::cout << "pitch:" << std::to_string(pitch) << std::endl;
+        std::cout << "yaw:" << std::to_string(yaw) << std::endl;
+        Eigen::Quaterniond q_odom_lidar = error_term_->ypr2Quat(yaw, pitch, roll);
+        Eigen::Matrix4d T_odom_lidar;
+        T_odom_lidar.setIdentity();
+        T_odom_lidar.block<3, 3>(0, 0) = q_odom_lidar.toRotationMatrix();
+        T_odom_lidar.block<3, 1>(0, 3) = Eigen::Vector3d(x, y, z);
+        saveResult(T_odom_lidar);
+        start_calib_ = false;
+      }
+      else
+      {
+        std::cout << "lidar_data_.size():" << lidar_data_.size() << std::endl;
+        std::cout << "odom_data_.size():" << odom_data_.size() << std::endl;
+        buildCalibData();
+        Eigen::Quaterniond q_odom_lidar = error_term_->ypr2Quat(0, 0, 0);
+        Eigen::Matrix4d T_odom_lidar;
+        T_odom_lidar.setIdentity();
+        T_odom_lidar.block<3, 3>(0, 0) = q_odom_lidar.toRotationMatrix();
+        T_odom_lidar.block<3, 1>(0, 3) = Eigen::Vector3d(0.18, 0, 0);
+        saveResult(T_odom_lidar);
+        start_calib_ = false;
+      }
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
   }
@@ -2104,6 +2129,7 @@ void hj::OdomNode::saveResult(Eigen::Matrix4d T_odom_lidar)
   std::cout << "T_odom_lidar:" << T_odom_lidar << std::endl;
   std::ofstream f_out_odom("/home/zc/out_odom.txt", std::ios::app);
   std::ofstream f_out_lidar("/home/zc/out_lidar.txt", std::ios::app);
+  std::ofstream f_out_lidar_time("/home/zc/out_lidar_time.txt", std::ios::app);
 
   for (int i = 0; i < lidar_poses_.size(); i++)
   {
@@ -2133,7 +2159,10 @@ void hj::OdomNode::saveResult(Eigen::Matrix4d T_odom_lidar)
     //             << T_lidar(1, 0) << " " << T_lidar(1, 1) << " " << T_lidar(1, 2) << " " << T_lidar(1, 3) << " "
     //             << T_lidar(2, 0) << " " << T_lidar(2, 1) << " " << T_lidar(2, 2) << " " << T_lidar(2, 3) << std::endl;
   }
-  align();
+  if (use_fuison_result_)
+  {
+    align();
+  }
 
   for (int i = 0; i < lidar_poses_.size(); i++)
   {
@@ -2156,6 +2185,9 @@ void hj::OdomNode::saveResult(Eigen::Matrix4d T_odom_lidar)
     f_out_lidar << T_lidar(0, 0) << " " << T_lidar(0, 1) << " " << T_lidar(0, 2) << " " << T_lidar(0, 3) << " "
                 << T_lidar(1, 0) << " " << T_lidar(1, 1) << " " << T_lidar(1, 2) << " " << T_lidar(1, 3) << " "
                 << T_lidar(2, 0) << " " << T_lidar(2, 1) << " " << T_lidar(2, 2) << " " << T_lidar(2, 3) << std::endl;
+    f_out_lidar_time << std::to_string(lidar_times_[i]) << " " << T_lidar(0, 0) << " " << T_lidar(0, 1) << " " << T_lidar(0, 2) << " " << T_lidar(0, 3) << " "
+                     << T_lidar(1, 0) << " " << T_lidar(1, 1) << " " << T_lidar(1, 2) << " " << T_lidar(1, 3) << " "
+                     << T_lidar(2, 0) << " " << T_lidar(2, 1) << " " << T_lidar(2, 2) << " " << T_lidar(2, 3) << std::endl;
   }
 }
 

@@ -59,6 +59,7 @@
 #include <pcl/registration/ndt.h>
 #include <laser_geometry/laser_geometry.h>
 #include "hj_interface/Pose.h"
+#include "hj_interface/Imu.h"
 #include "function_factory.h"
 #include "node_factory.h"
 #include "hj/ExtrinsicErrorTerm.hh"

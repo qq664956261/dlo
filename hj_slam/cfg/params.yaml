@@ -21,7 +21,7 @@ dlo:
 
     preprocessing:
       cropBoxFilter:
-        use: true
+        use: false
         size: 1
       voxelFilter:
         scan:
