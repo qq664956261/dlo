@@ -27,11 +27,11 @@ public:
 private:
   void abortTimerCB(const ros::TimerEvent &e);
   // void icpCB(const livox_ros_driver2::CustomMsgConstPtr& pc);
-  //void icpCB(const sensor_msgs::MultiEchoLaserScan::ConstPtr& multi_echo_msg);
-  void icpCB(const sensor_msgs::LaserScan::ConstPtr &pc);
+  void icpCB(const sensor_msgs::MultiEchoLaserScan::ConstPtr& multi_echo_msg);
+  //void icpCB(const sensor_msgs::LaserScan::ConstPtr &pc);
 
-  //void imuCB(const sensor_msgs::Imu::ConstPtr &imu);
-  void imuCB(const hj_interface::ImuConstPtr &imu);
+  void imuCB(const sensor_msgs::Imu::ConstPtr &imu);
+  //void imuCB(const hj_interface::ImuConstPtr &imu);
   bool saveTrajectory(hj_slam::save_traj::Request &req,
                       hj_slam::save_traj::Response &res);
 
@@ -270,8 +270,8 @@ private:
   bool first_frame_{false};
   bool use_first_frame_{false};
   std::vector<pcl::PointCloud<PointType>::Ptr> first_frame_clouds_;
-  bool use_icp_{false};
-  bool use_ndt_{true};
+  bool use_icp_{true};
+  bool use_ndt_{false};
   pcl::IterativeClosestPoint<PointType, PointType> icp_s2s_;
   pcl::IterativeClosestPoint<PointType, PointType> icp_s2m_;
   pcl::NormalDistributionsTransform<PointType, PointType> ndt_s2s_;
@@ -290,7 +290,7 @@ private:
   VecOfPoses lidar_poses_;
   std::deque<double> odom_times_;
   std::deque<double> lidar_times_;
-  bool use_calib_{true};
+  bool use_calib_{false};
   bool use_fuison_result_{false};
   std::vector<double> keyframes_timestamps_;
   double loop_distance_{0.5};
@@ -302,7 +302,7 @@ private:
   std::vector<std::pair<std::pair<Eigen::Vector3f, Eigen::Quaternionf>, pcl::PointCloud<PointType>::Ptr>> keyframes_loop_;
   std::vector<double> keyframes_timestamps_loop_;
   pcl::PointCloud<PointType>::Ptr loop_source_cloud_;
-  bool use_loop_{true};
+  bool use_loop_{false};
   std::thread loop_thread_;
   std::mutex mtx_loop_;
   std::atomic<bool> is_optimized_{false};

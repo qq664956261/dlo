@@ -25,15 +25,15 @@ dlo:
         size: 1
       voxelFilter:
         scan:
-          use: false
-          res: 0.1
+          use: true
+          res: 0.25
         submap:
-          use: false
-          res: 0.1
+          use: true
+          res: 0.5
 
     keyframe:
-      threshD: 0.5
-      threshR: 15
+      threshD: 1
+      threshR: 45
 
     submap:
       keyframe:
@@ -48,20 +48,20 @@ dlo:
     gicp:
       minNumPoints: 10
       s2s:
-        kCorrespondences: 10
-        maxCorrespondenceDistance: 1.0
+        kCorrespondences: 40
+        maxCorrespondenceDistance: 0.25
         maxIterations: 320
         transformationEpsilon: 0.000001
         euclideanFitnessEpsilon: 0.000001
         ransac:
           iterations: 5
-          outlierRejectionThresh: 1.0
+          outlierRejectionThresh: 0.25
       s2m:
-        kCorrespondences: 20
-        maxCorrespondenceDistance: 0.5
+        kCorrespondences: 40
+        maxCorrespondenceDistance: 0.25
         maxIterations: 320
         transformationEpsilon: 0.000001
         euclideanFitnessEpsilon: 0.000001
         ransac:
           iterations: 5
-          outlierRejectionThresh: 1.0
+          outlierRejectionThresh: 0.25

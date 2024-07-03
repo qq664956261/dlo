@@ -30,10 +30,10 @@ hj::OdomNode::OdomNode(ros::NodeHandle node_handle) : nh(node_handle)
 
   // this->icp_sub = this->nh.subscribe("/livox/lidar", 1, &hj::OdomNode::icpCB, this);
   // // this->imu_sub = this->nh.subscribe("/livox/imu", 1, &hj::OdomNode::imuCB, this);
-  // this->icp_sub = this->nh.subscribe("/horizontal_laser_2d", 1, &hj::OdomNode::icpCB, this);
-  // this->imu_sub = this->nh.subscribe("/imu", 1, &hj::OdomNode::imuCB, this);
-  this->icp_sub = this->nh.subscribe("/scan", 1, &hj::OdomNode::icpCB, this);
-  this->imu_sub = this->nh.subscribe("/imu_chatter", 1, &hj::OdomNode::imuCB, this);
+  this->icp_sub = this->nh.subscribe("/horizontal_laser_2d", 1, &hj::OdomNode::icpCB, this);
+  this->imu_sub = this->nh.subscribe("/imu", 1, &hj::OdomNode::imuCB, this);
+  // this->icp_sub = this->nh.subscribe("/scan", 1, &hj::OdomNode::icpCB, this);
+  // this->imu_sub = this->nh.subscribe("/imu_chatter", 1, &hj::OdomNode::imuCB, this);
   this->odom_sub = this->nh.subscribe("/fusion_result", 1000, &hj::OdomNode::CallbackOdom, this);
 
   this->odom_pub = this->nh.advertise<nav_msgs::Odometry>("odom", 1);
@@ -746,8 +746,8 @@ void hj::OdomNode::initializeDLO()
  **/
 
 // void hj::OdomNode::icpCB(const livox_ros_driver2::CustomMsgConstPtr &pc)
-// void hj::OdomNode::icpCB(const sensor_msgs::MultiEchoLaserScan::ConstPtr &pc)
-void hj::OdomNode::icpCB(const sensor_msgs::LaserScan::ConstPtr &pc)
+void hj::OdomNode::icpCB(const sensor_msgs::MultiEchoLaserScan::ConstPtr &pc)
+// void hj::OdomNode::icpCB(const sensor_msgs::LaserScan::ConstPtr &pc)
 {
   double then = ros::Time::now().toSec();
   this->scan_stamp = pc->header.stamp;
@@ -757,59 +757,59 @@ void hj::OdomNode::icpCB(const sensor_msgs::LaserScan::ConstPtr &pc)
   // If there are too few points in the pointcloud, try again
   this->current_scan = pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
   // LaserScan
-  laser_geometry::LaserProjection projector;
-  sensor_msgs::PointCloud2 cloud2;
+  // laser_geometry::LaserProjection projector;
+  // sensor_msgs::PointCloud2 cloud2;
 
-  // 将LaserScan转换为PointCloud2
-  projector.projectLaser(*pc, cloud2);
+  // // 将LaserScan转换为PointCloud2
+  // projector.projectLaser(*pc, cloud2);
 
-  // 然后将PointCloud2转换为PCL的点云格式
-  pcl::PointCloud<PointType>::Ptr cloud(new pcl::PointCloud<PointType>);
-  pcl::fromROSMsg(cloud2, *cloud);
-  for (auto point : cloud->points)
-  {
-    PointType p;
-    p.x = point.x;
-    p.y = point.y;
-    p.z = point.z;
-    p.intensity = point.intensity;
-    this->current_scan->push_back(p);
-  }
+  // // 然后将PointCloud2转换为PCL的点云格式
+  // pcl::PointCloud<PointType>::Ptr cloud(new pcl::PointCloud<PointType>);
+  // pcl::fromROSMsg(cloud2, *cloud);
+  // for (auto point : cloud->points)
+  // {
+  //   PointType p;
+  //   p.x = point.x;
+  //   p.y = point.y;
+  //   p.z = point.z;
+  //   p.intensity = point.intensity;
+  //   this->current_scan->push_back(p);
+  // }
 
   // MultiEchoLaserScan
-  // for (size_t i = 0; i < pc->ranges.size(); ++i)
-  // {
-  //   // 对每个角度采用最强的回声
-  //   if (!pc->ranges[i].echoes.empty())
-  //   {
-  //     const float range = pc->ranges[i].echoes[0]; // 假设第一个回声是最强回声
+  for (size_t i = 0; i < pc->ranges.size(); ++i)
+  {
+    // 对每个角度采用最强的回声
+    if (!pc->ranges[i].echoes.empty())
+    {
+      const float range = pc->ranges[i].echoes[0]; // 假设第一个回声是最强回声
 
-  //     if (range < pc->range_min || range > pc->range_max)
-  //     {
-  //       // 跳过超出范围的回声
-  //       continue;
-  //     }
+      if (range < pc->range_min || range > pc->range_max)
+      {
+        // 跳过超出范围的回声
+        continue;
+      }
 
-  //     // 计算角度（在MultiEchoLaserScan中是增量表示的）
-  //     float angle = pc->angle_min + i * pc->angle_increment;
+      // 计算角度（在MultiEchoLaserScan中是增量表示的）
+      float angle = pc->angle_min + i * pc->angle_increment;
 
-  //     // 转换为笛卡尔坐标
-  //     float x = range * cos(angle);
-  //     float y = range * sin(angle);
+      // 转换为笛卡尔坐标
+      float x = range * cos(angle);
+      float y = range * sin(angle);
 
-  //     // 添加到点云
-  //     PointType point;
-  //     point.x = x;
-  //     point.y = y;
-  //     point.z = 0;
-  //     point.intensity = 0;
-  //     if (x * x + y * y > 1600)
-  //       continue;
-  //     current_scan->push_back(point);
-  //   }
-  // }
+      // 添加到点云
+      PointType point;
+      point.x = x;
+      point.y = y;
+      point.z = 0;
+      point.intensity = 0;
+      if (x * x + y * y > 1600)
+        continue;
+      current_scan->push_back(point);
+    }
+  }
   // pcl::io::savePLYFileBinary("/home/zc/current_scan.ply", *this->current_scan);
-  // CustomMsgConstPtr
+  //  CustomMsgConstPtr
 
   // for (int i = 0; i < pc->points.size(); i++)
   // {
@@ -909,8 +909,8 @@ void hj::OdomNode::icpCB(const sensor_msgs::LaserScan::ConstPtr &pc)
  * IMU Callback
  **/
 
-// void hj::OdomNode::imuCB(const sensor_msgs::Imu::ConstPtr &imu)
-void hj::OdomNode::imuCB(const hj_interface::ImuConstPtr &imu)
+void hj::OdomNode::imuCB(const sensor_msgs::Imu::ConstPtr &imu)
+// void hj::OdomNode::imuCB(const hj_interface::ImuConstPtr &imu)
 {
 
   if (!this->imu_use_)
@@ -921,25 +921,26 @@ void hj::OdomNode::imuCB(const hj_interface::ImuConstPtr &imu)
   double ang_vel[3], lin_accel[3];
 
   // Get IMU samples
-  // ang_vel[0] = imu->angular_velocity.x;
-  // ang_vel[1] = imu->angular_velocity.y;
-  // ang_vel[2] = imu->angular_velocity.z;
+  ang_vel[0] = imu->angular_velocity.x;
+  ang_vel[1] = imu->angular_velocity.y;
+  ang_vel[2] = imu->angular_velocity.z;
 
-  // lin_accel[0] = imu->linear_acceleration.x;
-  // lin_accel[1] = imu->linear_acceleration.y;
-  // lin_accel[2] = imu->linear_acceleration.z;
-  ang_vel[0] = imu->gyro_x;
-  ang_vel[1] = imu->gyro_y;
-  ang_vel[2] = imu->gyro_z;
+  lin_accel[0] = imu->linear_acceleration.x;
+  lin_accel[1] = imu->linear_acceleration.y;
+  lin_accel[2] = imu->linear_acceleration.z;
 
-  lin_accel[0] = imu->accel_x;
-  lin_accel[1] = imu->accel_y;
-  lin_accel[2] = imu->accel_z;
+  // ang_vel[0] = imu->gyro_x;
+  // ang_vel[1] = imu->gyro_y;
+  // ang_vel[2] = imu->gyro_z;
+
+  // lin_accel[0] = imu->accel_x;
+  // lin_accel[1] = imu->accel_y;
+  // lin_accel[2] = imu->accel_z;
 
   if (this->first_imu_time == 0.)
   {
-    // this->first_imu_time = imu->header.stamp.toSec();
-    this->first_imu_time = imu->custom_time.toSec();
+    this->first_imu_time = imu->header.stamp.toSec();
+    // this->first_imu_time = imu->custom_time.toSec();
   }
 
   // IMU calibration procedure - do for three seconds
@@ -949,8 +950,8 @@ void hj::OdomNode::imuCB(const hj_interface::ImuConstPtr &imu)
     static int num_samples = 0;
     static bool print = true;
 
-    // if ((imu->header.stamp.toSec() - this->first_imu_time) < this->imu_calib_time_)
-    if ((imu->custom_time.toSec() - this->first_imu_time) < this->imu_calib_time_)
+    if ((imu->header.stamp.toSec() - this->first_imu_time) < this->imu_calib_time_)
+    // if ((imu->custom_time.toSec() - this->first_imu_time) < this->imu_calib_time_)
     {
 
       num_samples++;
@@ -992,8 +993,8 @@ void hj::OdomNode::imuCB(const hj_interface::ImuConstPtr &imu)
   {
 
     // Apply the calibrated bias to the new IMU measurements
-    // this->imu_meas.stamp = imu->header.stamp.toSec();
-    this->imu_meas.stamp = imu->custom_time.toSec();
+    this->imu_meas.stamp = imu->header.stamp.toSec();
+    // this->imu_meas.stamp = imu->custom_time.toSec();
 
     this->imu_meas.ang_vel.x = ang_vel[0] - this->imu_bias.gyro.x;
     this->imu_meas.ang_vel.y = ang_vel[1] - this->imu_bias.gyro.y;
@@ -1588,10 +1589,19 @@ void hj::OdomNode::updateKeyframes()
   {
     newKeyframe = false;
   }
-  if (abs(dd) <= this->keyframe_thresh_dist_ && abs(theta_deg) > this->keyframe_thresh_rot_ && num_nearby <= 1)
+  // if (abs(dd) <= this->keyframe_thresh_dist_ && abs(theta_deg) > this->keyframe_thresh_rot_ && num_nearby <= 1)
+  // {
+  //   newKeyframe = true;
+  // }
+  if (abs(dd) <= this->keyframe_thresh_dist_ && abs(theta_deg) > this->keyframe_thresh_rot_ && num_nearby <= 5)
   {
     newKeyframe = true;
   }
+
+  // if (abs(theta_deg) > this->keyframe_thresh_rot_)
+  // {
+  //   newKeyframe = true;
+  // }
 
   if (newKeyframe)
   {
