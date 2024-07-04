@@ -1,0 +1,6 @@
+{
+	"all_log_file_path": "/tmp/logging/",
+	"log_file_name": "log_recorder.log",
+	"max_size": 100000,
+	"max_index": 2
+}

@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<launch>
+  <node name="run_script" pkg="my_package" type="/home/wangqing/work_space/hj_workspace/devel/lib/collect_node/collect_node" output="screen" />
+</launch>
